@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Proyección</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  html,body{height:100%;margin:0;background:#000;overflow:hidden;cursor:none;}
+  #stage{
+    width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#000;
+  }
+  #content{
+    font-family:'Space Grotesk', system-ui, sans-serif;
+    color:#fff;
+    text-align:center;
+    width:88vw;
+    line-height:1.45;
+    white-space:pre-wrap;
+    text-shadow:0 2px 14px rgba(0,0,0,.6);
+  }
+  #content.song{ font-size:5.2vw; font-weight:700; }
+  #content.announcement{ font-size:4vw; font-weight:600; }
+  #content.verse{ font-size:4vw; font-weight:500; }
+  #content .ref{ display:block; margin-top:28px; font-size:.45em; opacity:.75; font-weight:600; }
+  #imgWrap{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  #imgWrap img{ max-width:100%; max-height:100%; object-fit:contain; }
+  #blank{ display:none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="content" class="song"></div>
+  <div id="imgWrap" style="display:none;"><img id="imgEl" /></div>
+</div>
+<script>
+  const channel = new BroadcastChannel('proyector-sync');
+  const stage = document.getElementById('stage');
+  const content = document.getElementById('content');
+  const imgWrap = document.getElementById('imgWrap');
+  const imgEl = document.getElementById('imgEl');
+
+  function render(payload) {
+    if (!payload || payload.kind === 'blank') {
+      content.style.display = 'none';
+      imgWrap.style.display = 'none';
+      return;
+    }
+    if (payload.kind === 'image') {
+      content.style.display = 'none';
+      imgWrap.style.display = 'flex';
+      imgEl.src = payload.imageData;
+      return;
+    }
+    imgWrap.style.display = 'none';
+    content.style.display = 'block';
+    content.className = payload.kind === 'song' ? 'song' : (payload.kind === 'verse' ? 'verse' : 'announcement');
+    let html = (payload.text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if (payload.reference) {
+      html += `<span class="ref">${payload.reference.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`;
+    }
+    content.innerHTML = html;
+  }
+
+  channel.onmessage = (e) => {
+    if (e.data && e.data.type === 'content') render(e.data.payload);
+    if (e.data && e.data.type === 'ping') channel.postMessage({ type: 'pong' });
+  };
+
+  // al cargar, pide el estado actual a la ventana de control
+  channel.postMessage({ type: 'request-state' });
+
+  // doble click para salir de pantalla completa fácilmente (operador)
+  document.addEventListener('dblclick', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(()=>{});
+  });
+</script>
+</body>
+</html>
