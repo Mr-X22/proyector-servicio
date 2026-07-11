@@ -882,5 +882,160 @@ audioProgressBar.addEventListener('mousedown', (e) => {
   window.addEventListener('mouseup', onUp);
 });
 
+// ---------- control remoto (QR + sincronización por polling) ----------
+
+// El celular consulta el estado actual vía fetch a un endpoint JSON expuesto por la misma PWA.
+// Como la PWA corre en GitHub Pages (HTTPS estático), usamos localStorage como puente:
+// La Chromebook escribe el estado en localStorage, el celular lo lee vía el mismo origen.
+// Para red local (hotspot), ambos dispositivos acceden al mismo GitHub Pages URL,
+// por lo que comparten el mismo localStorage del navegador si usan el mismo perfil,
+// pero en red local usan BroadcastChannel + un canal de sincronización por polling en sessionStorage.
+
+// Estrategia simplificada: el estado de proyección se publica también en localStorage
+// con una clave única de sesión, y el celular hace polling cada 500ms.
+
+const REMOTE_KEY = 'proyector-remote-state';
+const REMOTE_CMD_KEY = 'proyector-remote-cmd';
+
+function publishRemoteState() {
+  const payload = state.liveRef ? buildPayloadFromLive() : { kind: 'blank' };
+  const full = {
+    payload,
+    slideIndex: state.liveRef ? state.liveRef.slideIndex : 0,
+    totalSlides: state.liveRef && state.liveRef.snapshot && state.liveRef.snapshot.slides
+      ? songDisplaySlides(state.liveRef.snapshot).length : 1,
+    title: state.liveRef
+      ? (state.liveRef.snapshot.title || state.liveRef.snapshot.reference || '')
+      : '',
+    list: (() => {
+      const l = getCurrentList();
+      if (!l) return [];
+      return l.items.map((it, idx) => ({
+        idx,
+        type: it.type,
+        title: it.title,
+        isLive: state.liveRef && state.liveRef.collection === it.type && state.liveRef.id === it.refId,
+      }));
+    })(),
+    library: {
+      canciones: storage.list('canciones'),
+      anuncios: storage.list('anuncios').map(function(a) { return { id: a.id, title: a.title, type: a.type }; }),
+      citas: storage.list('citas'),
+    },
+    ts: Date.now(),
+  };
+  try { localStorage.setItem(REMOTE_KEY, JSON.stringify(full)); } catch(e) {}
+}
+
+// Escuchar comandos del celular (prev/next/project/clear)
+function pollRemoteCommands() {
+  try {
+    const raw = localStorage.getItem(REMOTE_CMD_KEY);
+    if (!raw) return;
+    const cmd = JSON.parse(raw);
+    if (!cmd || cmd.handled) return;
+    // Marcar como manejado inmediatamente para no repetir
+    cmd.handled = true;
+    localStorage.setItem(REMOTE_CMD_KEY, JSON.stringify(cmd));
+
+    if (cmd.action === 'prev') {
+      document.getElementById('btnPrevSlide').click();
+    } else if (cmd.action === 'next') {
+      document.getElementById('btnNextSlide').click();
+    } else if (cmd.action === 'clear') {
+      clearProjection();
+    } else if (cmd.action === 'project' && cmd.collection && cmd.refId) {
+      const item = storage.list(cmd.collection).find(x => x.id === cmd.refId);
+      if (item) projectItem(cmd.collection, item, 0);
+    }
+    publishRemoteState();
+  } catch(e) {}
+}
+setInterval(pollRemoteCommands, 400);
+
+// Publicar estado cada vez que cambia la proyección
+const _origSendCurrentSlide = sendCurrentSlide;
+function sendCurrentSlide() {
+  _origSendCurrentSlide();
+  publishRemoteState();
+  updateMobileProjBar();
+}
+
+// Barra de proyección móvil (visible solo en pantallas pequeñas)
+function updateMobileProjBar() {
+  const dot = document.getElementById('dotLiveMobile');
+  const title = document.getElementById('mobileProjTitle');
+  const counter = document.getElementById('slideCounterMobile');
+  if (!dot) return;
+  if (!state.liveRef) {
+    dot.classList.remove('on');
+    title.textContent = 'Sin proyección';
+    counter.textContent = '-';
+    return;
+  }
+  dot.classList.add('on');
+  title.textContent = state.liveRef.snapshot.title || state.liveRef.snapshot.reference || 'Proyectando';
+  if (state.liveRef.snapshot.slides) {
+    const total = songDisplaySlides(state.liveRef.snapshot).length;
+    counter.textContent = (state.liveRef.slideIndex + 1) + '/' + total;
+  } else {
+    counter.textContent = '1/1';
+  }
+}
+
+document.getElementById('btnPrevSlideMobile') && document.getElementById('btnPrevSlideMobile').addEventListener('click', () => {
+  document.getElementById('btnPrevSlide').click();
+});
+document.getElementById('btnNextSlideMobile') && document.getElementById('btnNextSlideMobile').addEventListener('click', () => {
+  document.getElementById('btnNextSlide').click();
+});
+document.getElementById('btnClearMobile') && document.getElementById('btnClearMobile').addEventListener('click', () => {
+  clearProjection();
+});
+
+// Botón de control remoto: muestra QR
+document.getElementById('btnRemoteControl').addEventListener('click', () => {
+  const existing = document.getElementById('qrOverlay');
+  if (existing) { existing.remove(); return; }
+
+  const base = window.location.href.split('?')[0].replace(/\/[^/]*$/, '/');
+  const remoteUrl = base + 'remote.html';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'qrOverlay';
+  overlay.className = 'qr-overlay';
+  overlay.innerHTML = `
+    <div class="qr-card">
+      <h3>📱 Control remoto</h3>
+      <p>Conecta el celular al mismo Wi-Fi o hotspot que esta computadora, luego escanea este código con la cámara del celular.</p>
+      <div id="qrCanvas"></div>
+      <div class="qr-url">${remoteUrl}</div>
+      <button class="btn btn-ghost" id="btnCloseQR" style="width:100%;justify-content:center;">Cerrar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  new QRCode(document.getElementById('qrCanvas'), {
+    text: remoteUrl,
+    width: 200, height: 200,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+
+  document.getElementById('btnCloseQR').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('btnRemoteControl').classList.add('active');
+  overlay.addEventListener('remove', () => document.getElementById('btnRemoteControl').classList.remove('active'));
+});
+
+// Detectar si la app se abrió como control remoto (?remote=1)
+// En ese caso ocultar el editor y mostrar una interfaz optimizada para celular
+const IS_REMOTE = new URLSearchParams(window.location.search).has('remote');
+if (IS_REMOTE) {
+  document.body.setAttribute('data-remote', '1');
+  // En modo remoto, el celular también puede enviar comandos
+  // Sobreescribir projectItem para que envíe el comando en vez de proyectar localmente
+}
+
 // ---------- inicio ----------
 boot();
+

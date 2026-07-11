@@ -1,7 +1,8 @@
-const CACHE = 'proyector-cache-v2';
+const CACHE = 'proyector-cache-v3';
 const ASSETS = [
   './index.html',
   './projection.html',
+  './remote.html',
   './style.css',
   './app.js',
   './storage.js',

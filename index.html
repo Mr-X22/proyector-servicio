@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -33,6 +34,10 @@
       Audio
     </button>
     <div class="rail-spacer"></div>
+    <button class="rail-btn" id="btnRemoteControl" title="Control remoto por celular">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
+      Remoto
+    </button>
     <button class="rail-btn" id="btnProjectorWindow" title="Abrir ventana de proyección">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Proyectar
@@ -44,6 +49,19 @@
 
   <!-- LIBRARY -->
   <section class="library">
+    <!-- Barra de estado visible solo en móvil -->
+    <div class="mobile-proj-bar" id="mobileProjBar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot-live" id="dotLiveMobile"></span>
+        <span id="mobileProjTitle" style="font-size:12px;color:var(--text-muted);">Sin proyección</span>
+      </div>
+      <div class="slide-nav">
+        <button class="nav-btn" id="btnPrevSlideMobile">‹</button>
+        <span id="slideCounterMobile" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:36px;text-align:center;">-</span>
+        <button class="nav-btn" id="btnNextSlideMobile">›</button>
+        <button class="mobile-clear-btn" id="btnClearMobile">✕ Limpiar</button>
+      </div>
+    </div>
     <div class="lib-head">
       <h2 id="libTitle">Letras de canciones</h2>
       <span class="count-pill" id="libCount">0/10</span>

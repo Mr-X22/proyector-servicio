@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Control Remoto — Proyector de Servicio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #14181F;
+  --panel: #1C232E;
+  --panel-raised: #222A36;
+  --border: #2A3340;
+  --amber: #E8AA4C;
+  --amber-dim: #8a6a36;
+  --teal: #5FB3B3;
+  --red: #D96C6C;
+  --text: #F2F0EA;
+  --text-muted: #8B93A1;
+  --text-faint: #5A6271;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif; overflow: hidden; }
+
+/* Layout */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+}
+
+/* Header */
+.header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(160deg,#E8AA4C,#c98a2e); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #1a1308; font-size: 14px; flex-shrink: 0; }
+.header h1 { font-size: 14px; font-weight: 600; }
+.live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-faint); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.dot.on { background: var(--teal); animation: pulse 1.8s infinite; }
+@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(95,179,179,.55)} 70%{box-shadow:0 0 0 6px rgba(95,179,179,0)} 100%{box-shadow:0 0 0 0 rgba(95,179,179,0)} }
+
+/* Tabs */
+.tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
+.tab { flex: 1; padding: 10px 4px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-faint); cursor: pointer; border-bottom: 2px solid transparent; transition: all .12s; }
+.tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+/* Content */
+.content { overflow-y: auto; }
+
+/* Proyección actual */
+.now-playing {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.now-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin-bottom: 4px; }
+.now-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.slide-controls { display: flex; align-items: center; gap: 10px; }
+.slide-btn {
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--panel-raised); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  transition: border-color .12s;
+}
+.slide-btn:active { background: var(--amber-dim); border-color: var(--amber); }
+.slide-counter { font-size: 13px; color: var(--text-muted); min-width: 44px; text-align: center; }
+.clear-btn {
+  margin-left: auto; background: transparent; border: 1px solid var(--border);
+  color: var(--text-faint); border-radius: 8px; padding: 8px 12px;
+  font-size: 12px; cursor: pointer;
+}
+.clear-btn:active { background: rgba(217,108,108,.15); border-color: var(--red); color: var(--red); }
+
+/* Lista de servicio */
+.list-section { padding: 10px 14px 6px; }
+.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin-bottom: 8px; display: flex; justify-content: space-between; }
+.tl-list { display: flex; flex-direction: column; gap: 6px; }
+.tl-item {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  transition: border-color .12s;
+}
+.tl-item:active { background: var(--panel-raised); }
+.tl-item.live { border-color: var(--teal); }
+.tl-item-left { display: flex; flex-direction: column; gap: 2px; }
+.tl-item-type { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
+.tl-item-title { font-size: 14px; font-weight: 600; }
+.tl-item-arrow { color: var(--text-faint); font-size: 18px; }
+.tl-item.live .tl-item-arrow { color: var(--teal); }
+
+/* Biblioteca */
+.lib-section { padding: 10px 14px 6px; }
+.lib-search {
+  width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; color: var(--text); font-size: 14px; font-family: inherit; margin-bottom: 10px;
+}
+.lib-item {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; cursor: pointer; margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.lib-item:active { background: var(--panel-raised); }
+.lib-item-title { font-size: 14px; font-weight: 600; }
+.lib-item-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.proj-icon { color: var(--amber); font-size: 18px; }
+
+/* Footer nav */
+.footer-nav {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+}
+.footer-btn {
+  flex: 1; padding: 10px 4px; text-align: center; font-size: 10px; color: var(--text-faint);
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: transparent;
+}
+.footer-btn svg { width: 20px; height: 20px; }
+.footer-btn.active { color: var(--amber); }
+
+/* Empty state */
+.empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div>
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">P</div>
+        <h1>Control Remoto</h1>
+      </div>
+      <div class="live-badge">
+        <span class="dot" id="dotLive"></span>
+        <span id="liveText">SIN SEÑAL</span>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="servicio">📋 Servicio</div>
+      <div class="tab" data-tab="canciones">🎵 Letras</div>
+      <div class="tab" data-tab="anuncios">📢 Anuncios</div>
+      <div class="tab" data-tab="citas">📖 Citas</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content" id="content">
+    <!-- se rellena dinámicamente -->
+  </div>
+
+  <!-- Footer: controles de diapositiva siempre visibles -->
+  <div style="background:var(--panel);border-top:1px solid var(--border);padding:10px 14px;">
+    <div id="nowPlaying" style="margin-bottom:8px;font-size:12px;color:var(--text-muted);">Sin proyección activa</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="slide-btn" id="btnPrev">‹</button>
+      <span class="slide-counter" id="slideCounter">-</span>
+      <button class="slide-btn" id="btnNext">›</button>
+      <button class="clear-btn" id="btnClear">✕ Limpiar</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const REMOTE_KEY = 'proyector-remote-state';
+const REMOTE_CMD_KEY = 'proyector-remote-cmd';
+let currentTab = 'servicio';
+let remoteState = null;
+
+function sendCmd(action, extra) {
+  const cmd = Object.assign({ action, ts: Date.now(), handled: false }, extra || {});
+  try { localStorage.setItem(REMOTE_CMD_KEY, JSON.stringify(cmd)); } catch(e) {}
+}
+
+document.getElementById('btnPrev').addEventListener('click', () => sendCmd('prev'));
+document.getElementById('btnNext').addEventListener('click', () => sendCmd('next'));
+document.getElementById('btnClear').addEventListener('click', () => sendCmd('clear'));
+
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  render();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+
+function render() {
+  const el = document.getElementById('content');
+  if (!remoteState) {
+    el.innerHTML = '<div class="empty">Esperando conexión con la Chromebook...<br>Asegúrate de que ambos dispositivos estén en la misma red.</div>';
+    return;
+  }
+
+  if (currentTab === 'servicio') {
+    renderServicio(el);
+  } else {
+    renderLib(el, currentTab);
+  }
+}
+
+function renderServicio(el) {
+  const list = remoteState.list || [];
+  if (!list.length) {
+    el.innerHTML = '<div class="empty">No hay lista de servicio activa.<br>Créala desde la Chromebook.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="list-section"><div class="section-label"><span>ORDEN DEL SERVICIO</span><span>' + list.length + ' elementos</span></div><div class="tl-list" id="tlList"></div></div>';
+  const tl = document.getElementById('tlList');
+  list.forEach(function(it) {
+    const div = document.createElement('div');
+    div.className = 'tl-item' + (it.isLive ? ' live' : '');
+    div.innerHTML = '<div class="tl-item-left"><div class="tl-item-type">' + it.type + '</div><div class="tl-item-title">' + escHtml(it.title) + '</div></div><div class="tl-item-arrow">' + (it.isLive ? '▶' : '›') + '</div>';
+    div.addEventListener('click', function() {
+      sendCmd('project', { collection: it.type, refId: it.refId || '' });
+    });
+    tl.appendChild(div);
+  });
+}
+
+function renderLib(el, collection) {
+  // Leer datos de la biblioteca desde el estado remoto extendido
+  const items = (remoteState.library && remoteState.library[collection]) || [];
+  const labelMap = { canciones: 'canciones', anuncios: 'anuncios', citas: 'citas bíblicas' };
+  el.innerHTML = '<div class="lib-section"><input class="lib-search" id="libSearch" placeholder="Buscar ' + labelMap[collection] + '..." /><div id="libItems"></div></div>';
+
+  const search = document.getElementById('libSearch');
+  const container = document.getElementById('libItems');
+
+  function renderItems(query) {
+    query = (query || '').toLowerCase();
+    const filtered = items.filter(function(i) {
+      return (i.title || i.reference || '').toLowerCase().includes(query);
+    });
+    container.innerHTML = '';
+    if (!filtered.length) {
+      container.innerHTML = '<div class="empty">Sin resultados.</div>';
+      return;
+    }
+    filtered.forEach(function(item) {
+      const div = document.createElement('div');
+      div.className = 'lib-item';
+      const title = item.title || item.reference || '';
+      const sub = collection === 'canciones' ? (item.author || 'Sin autor') + ' · ' + ((item.slides || []).length) + ' diap.'
+        : collection === 'anuncios' ? (item.type === 'image' ? 'Imagen' : 'Texto')
+        : 'Cita bíblica';
+      div.innerHTML = '<div><div class="lib-item-title">' + escHtml(title) + '</div><div class="lib-item-sub">' + escHtml(sub) + '</div></div><div class="proj-icon">▶</div>';
+      div.addEventListener('click', function() {
+        sendCmd('project', { collection: collection, refId: item.id });
+      });
+      container.appendChild(div);
+    });
+  }
+  renderItems('');
+  search.addEventListener('input', function() { renderItems(search.value); });
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateHeader() {
+  const dot = document.getElementById('dotLive');
+  const liveText = document.getElementById('liveText');
+  const nowPlaying = document.getElementById('nowPlaying');
+  const counter = document.getElementById('slideCounter');
+
+  if (!remoteState || remoteState.payload.kind === 'blank') {
+    dot.classList.remove('on');
+    liveText.textContent = 'SIN SEÑAL';
+    nowPlaying.textContent = 'Sin proyección activa';
+    counter.textContent = '-';
+    return;
+  }
+  dot.classList.add('on');
+  liveText.textContent = 'EN VIVO';
+  nowPlaying.textContent = remoteState.title || 'Proyectando';
+  if (remoteState.totalSlides > 1) {
+    counter.textContent = (remoteState.slideIndex + 1) + '/' + remoteState.totalSlides;
+  } else {
+    counter.textContent = '1/1';
+  }
+}
+
+// Polling del estado
+let lastTs = 0;
+function poll() {
+  try {
+    const raw = localStorage.getItem(REMOTE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.ts !== lastTs) {
+      lastTs = data.ts;
+      remoteState = data;
+      updateHeader();
+      render();
+    }
+  } catch(e) {}
+}
+setInterval(poll, 400);
+poll();
+render();
+</script>
+</body>
+</html>
