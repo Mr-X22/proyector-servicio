@@ -139,9 +139,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <div class="logo">P</div>
         <h1>Control Remoto</h1>
       </div>
-      <div class="live-badge">
-        <span class="dot" id="dotLive"></span>
-        <span id="liveText">SIN SEÑAL</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+        <div class="live-badge">
+          <span class="dot" id="dotLive"></span>
+          <span id="liveText">SIN SEÑAL</span>
+        </div>
+        <span id="connStatus" style="font-size:10px;color:#5A6271;">Conectando...</span>
       </div>
     </div>
     <div class="tabs">
@@ -171,14 +174,44 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <script>
-const REMOTE_KEY = 'proyector-remote-state';
-const REMOTE_CMD_KEY = 'proyector-remote-cmd';
 let currentTab = 'servicio';
 let remoteState = null;
+let ws = null;
+
+// Obtener sala de la URL
+const room = new URLSearchParams(window.location.search).get('room') || 'ps-default';
+
+function connectWS() {
+  ws = new WebSocket('wss://ws.vi-server.org/mirror/' + room);
+  ws.onopen = () => {
+    // Pedir estado actual a la Chromebook
+    ws.send(JSON.stringify({ type: 'cmd', action: 'request-state', ts: Date.now() }));
+    document.getElementById('connStatus').textContent = 'Conectado';
+    document.getElementById('connStatus').style.color = '#5FB3B3';
+  };
+  ws.onclose = () => {
+    document.getElementById('connStatus').textContent = 'Reconectando...';
+    document.getElementById('connStatus').style.color = '#8B93A1';
+    setTimeout(connectWS, 2000);
+  };
+  ws.onerror = () => {};
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'state') {
+        remoteState = msg;
+        updateHeader();
+        render();
+      }
+    } catch(_) {}
+  };
+}
+connectWS();
 
 function sendCmd(action, extra) {
-  const cmd = Object.assign({ action, ts: Date.now(), handled: false }, extra || {});
-  try { localStorage.setItem(REMOTE_CMD_KEY, JSON.stringify(cmd)); } catch(e) {}
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const cmd = Object.assign({ type: 'cmd', action, ts: Date.now() }, extra || {});
+  ws.send(JSON.stringify(cmd));
 }
 
 document.getElementById('btnPrev').addEventListener('click', () => sendCmd('prev'));
@@ -289,23 +322,6 @@ function updateHeader() {
   }
 }
 
-// Polling del estado
-let lastTs = 0;
-function poll() {
-  try {
-    const raw = localStorage.getItem(REMOTE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (data.ts !== lastTs) {
-      lastTs = data.ts;
-      remoteState = data;
-      updateHeader();
-      render();
-    }
-  } catch(e) {}
-}
-setInterval(poll, 400);
-poll();
 render();
 </script>
 </body>

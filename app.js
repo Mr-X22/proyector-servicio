@@ -587,9 +587,13 @@ function buildPayloadFromLive() {
 function sendCurrentSlide() {
   if (!state.liveRef) {
     channel.postMessage({ type: 'content', payload: { kind: 'blank' } });
+    publishRemoteState();
+    updateMobileProjBar();
     return;
   }
   channel.postMessage({ type: 'content', payload: buildPayloadFromLive() });
+  publishRemoteState();
+  updateMobileProjBar();
 }
 
 function clearProjection() {
@@ -882,24 +886,51 @@ audioProgressBar.addEventListener('mousedown', (e) => {
   window.addEventListener('mouseup', onUp);
 });
 
-// ---------- control remoto (QR + sincronización por polling) ----------
-
-// El celular consulta el estado actual vía fetch a un endpoint JSON expuesto por la misma PWA.
-// Como la PWA corre en GitHub Pages (HTTPS estático), usamos localStorage como puente:
-// La Chromebook escribe el estado en localStorage, el celular lo lee vía el mismo origen.
-// Para red local (hotspot), ambos dispositivos acceden al mismo GitHub Pages URL,
-// por lo que comparten el mismo localStorage del navegador si usan el mismo perfil,
-// pero en red local usan BroadcastChannel + un canal de sincronización por polling en sessionStorage.
-
-// Estrategia simplificada: el estado de proyección se publica también en localStorage
-// con una clave única de sesión, y el celular hace polling cada 500ms.
+// ---------- control remoto ----------
+// Usa un canal WebSocket de espejo gratuito para sincronizar entre dispositivos.
+// La Chromebook envía su estado; el celular lo recibe y envía comandos de vuelta.
+// No requiere servidor propio ni cuenta en ningún servicio.
 
 const REMOTE_KEY = 'proyector-remote-state';
 const REMOTE_CMD_KEY = 'proyector-remote-cmd';
 
+// Genera una ID de sala única por sesión (persiste en sessionStorage)
+function getRemoteRoom() {
+  let room = sessionStorage.getItem('proyector-room');
+  if (!room) {
+    room = 'ps-' + Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem('proyector-room', room);
+  }
+  return room;
+}
+
+// Canal WebSocket de espejo: cualquier mensaje enviado llega a todos los conectados con la misma sala
+let remoteWs = null;
+let remoteConnected = false;
+
+function connectRemoteWS(room, onMessage) {
+  if (remoteWs && remoteWs.readyState <= 1) return;
+  const url = 'wss://ws.vi-server.org/mirror/' + room;
+  remoteWs = new WebSocket(url);
+  remoteWs.onopen = () => { remoteConnected = true; };
+  remoteWs.onclose = () => { remoteConnected = false; setTimeout(() => connectRemoteWS(room, onMessage), 2000); };
+  remoteWs.onerror = () => { remoteConnected = false; };
+  remoteWs.onmessage = (e) => { try { onMessage(JSON.parse(e.data)); } catch(_) {} };
+}
+
+function sendRemote(data) {
+  if (remoteWs && remoteWs.readyState === WebSocket.OPEN) {
+    remoteWs.send(JSON.stringify(data));
+  }
+  // También guardar en localStorage para historial local
+  try { localStorage.setItem(REMOTE_KEY, JSON.stringify(data)); } catch(_) {}
+}
+
 function publishRemoteState() {
+  if (!remoteConnected) return;
   const payload = state.liveRef ? buildPayloadFromLive() : { kind: 'blank' };
   const full = {
+    type: 'state',
     payload,
     slideIndex: state.liveRef ? state.liveRef.slideIndex : 0,
     totalSlides: state.liveRef && state.liveRef.snapshot && state.liveRef.snapshot.slides
@@ -914,7 +945,8 @@ function publishRemoteState() {
         idx,
         type: it.type,
         title: it.title,
-        isLive: state.liveRef && state.liveRef.collection === it.type && state.liveRef.id === it.refId,
+        refId: it.refId,
+        isLive: !!(state.liveRef && state.liveRef.collection === it.type && state.liveRef.id === it.refId),
       }));
     })(),
     library: {
@@ -924,41 +956,21 @@ function publishRemoteState() {
     },
     ts: Date.now(),
   };
-  try { localStorage.setItem(REMOTE_KEY, JSON.stringify(full)); } catch(e) {}
+  sendRemote(full);
 }
 
-// Escuchar comandos del celular (prev/next/project/clear)
-function pollRemoteCommands() {
-  try {
-    const raw = localStorage.getItem(REMOTE_CMD_KEY);
-    if (!raw) return;
-    const cmd = JSON.parse(raw);
-    if (!cmd || cmd.handled) return;
-    // Marcar como manejado inmediatamente para no repetir
-    cmd.handled = true;
-    localStorage.setItem(REMOTE_CMD_KEY, JSON.stringify(cmd));
-
-    if (cmd.action === 'prev') {
-      document.getElementById('btnPrevSlide').click();
-    } else if (cmd.action === 'next') {
-      document.getElementById('btnNextSlide').click();
-    } else if (cmd.action === 'clear') {
-      clearProjection();
-    } else if (cmd.action === 'project' && cmd.collection && cmd.refId) {
-      const item = storage.list(cmd.collection).find(x => x.id === cmd.refId);
-      if (item) projectItem(cmd.collection, item, 0);
+// Manejar comandos entrantes del celular
+function handleRemoteMessage(msg) {
+  if (msg.type === 'cmd') {
+    if (msg.action === 'prev') document.getElementById('btnPrevSlide').click();
+    else if (msg.action === 'next') document.getElementById('btnNextSlide').click();
+    else if (msg.action === 'clear') clearProjection();
+    else if (msg.action === 'project' && msg.collection && msg.refId) {
+      const item = storage.list(msg.collection).find(x => x.id === msg.refId);
+      if (item) { projectItem(msg.collection, item, 0); renderTimeline(); }
     }
-    publishRemoteState();
-  } catch(e) {}
-}
-setInterval(pollRemoteCommands, 400);
-
-// Publicar estado cada vez que cambia la proyección
-const _origSendCurrentSlide = sendCurrentSlide;
-function sendCurrentSlide() {
-  _origSendCurrentSlide();
-  publishRemoteState();
-  updateMobileProjBar();
+    else if (msg.action === 'request-state') publishRemoteState();
+  }
 }
 
 // Barra de proyección móvil (visible solo en pantallas pequeñas)
@@ -996,10 +1008,16 @@ document.getElementById('btnClearMobile') && document.getElementById('btnClearMo
 // Botón de control remoto: muestra QR
 document.getElementById('btnRemoteControl').addEventListener('click', () => {
   const existing = document.getElementById('qrOverlay');
-  if (existing) { existing.remove(); return; }
+  if (existing) { existing.remove(); document.getElementById('btnRemoteControl').classList.remove('active'); return; }
+
+  const room = getRemoteRoom();
+  // Conectar WS de la Chromebook si no está conectado
+  if (!remoteWs || remoteWs.readyState > 1) {
+    connectRemoteWS(room, handleRemoteMessage);
+  }
 
   const base = window.location.href.split('?')[0].replace(/\/[^/]*$/, '/');
-  const remoteUrl = base + 'remote.html';
+  const remoteUrl = base + 'remote.html?room=' + room;
 
   const overlay = document.createElement('div');
   overlay.id = 'qrOverlay';
