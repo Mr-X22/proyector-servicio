@@ -190,6 +190,9 @@ function afterDataReady() {
   renderEditorEmpty();
   renderListSelect();
   renderTimeline();
+  // Conectar WebSocket del control remoto en cuanto los datos estén listos
+  const room = getRemoteRoom();
+  connectRemoteWS(room, handleRemoteMessage);
 }
 
 // ---------- secciones / rail ----------
@@ -896,10 +899,10 @@ const REMOTE_CMD_KEY = 'proyector-remote-cmd';
 
 // Genera una ID de sala única por sesión (persiste en sessionStorage)
 function getRemoteRoom() {
-  let room = sessionStorage.getItem('proyector-room');
+  let room = localStorage.getItem('proyector-room');
   if (!room) {
     room = 'ps-' + Math.random().toString(36).slice(2, 10);
-    sessionStorage.setItem('proyector-room', room);
+    localStorage.setItem('proyector-room', room);
   }
   return room;
 }
@@ -927,7 +930,7 @@ function sendRemote(data) {
 }
 
 function publishRemoteState() {
-  if (!remoteConnected) return;
+  if (!remoteWs || remoteWs.readyState !== WebSocket.OPEN) return;
   const payload = state.liveRef ? buildPayloadFromLive() : { kind: 'blank' };
   const full = {
     type: 'state',
