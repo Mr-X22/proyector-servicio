@@ -1039,11 +1039,15 @@ document.getElementById('btnClearMobile') && document.getElementById('btnClearMo
 // Botón de control remoto: muestra QR
 document.getElementById('btnRemoteControl').addEventListener('click', () => {
   const existing = document.getElementById('qrOverlay');
-  if (existing) { existing.remove(); document.getElementById('btnRemoteControl').classList.remove('active'); return; }
+  if (existing) {
+    existing.remove();
+    document.getElementById('btnRemoteControl').classList.remove('active');
+    return;
+  }
 
   const room = getRemoteRoom();
-  // Conectar WS de la Chromebook si no está conectado
-  if (!remoteWs || remoteWs.readyState > 1) {
+  // Conectar MQTT si no está conectado
+  if (!mqttClient || !mqttClient.isConnected()) {
     connectRemoteWS(room, handleRemoteMessage);
   }
 
@@ -1056,24 +1060,35 @@ document.getElementById('btnRemoteControl').addEventListener('click', () => {
   overlay.innerHTML = `
     <div class="qr-card">
       <h3>📱 Control remoto</h3>
-      <p>Conecta el celular al mismo Wi-Fi o hotspot que esta computadora, luego escanea este código con la cámara del celular.</p>
+      <p>Escanea este código con la cámara del celular. Ambos dispositivos deben tener acceso a internet.</p>
       <div id="qrCanvas"></div>
       <div class="qr-url">${remoteUrl}</div>
       <button class="btn btn-ghost" id="btnCloseQR" style="width:100%;justify-content:center;">Cerrar</button>
     </div>`;
   document.body.appendChild(overlay);
 
-  new QRCode(document.getElementById('qrCanvas'), {
-    text: remoteUrl,
-    width: 200, height: 200,
-    colorDark: '#000000', colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M,
-  });
+  try {
+    new QRCode(document.getElementById('qrCanvas'), {
+      text: remoteUrl,
+      width: 200, height: 200,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } catch(e) {
+    document.getElementById('qrCanvas').textContent = 'Error al generar QR. Copia el enlace de abajo.';
+  }
 
-  document.getElementById('btnCloseQR').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('btnCloseQR').addEventListener('click', () => {
+    overlay.remove();
+    document.getElementById('btnRemoteControl').classList.remove('active');
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      document.getElementById('btnRemoteControl').classList.remove('active');
+    }
+  });
   document.getElementById('btnRemoteControl').classList.add('active');
-  overlay.addEventListener('remove', () => document.getElementById('btnRemoteControl').classList.remove('active'));
 });
 
 // Detectar si la app se abrió como control remoto (?remote=1)
