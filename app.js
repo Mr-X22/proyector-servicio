@@ -907,30 +907,58 @@ function getRemoteRoom() {
   return room;
 }
 
-// Canal WebSocket de espejo: cualquier mensaje enviado llega a todos los conectados con la misma sala
-let remoteWs = null;
+// MQTT sobre WebSocket — broker público gratuito de HiveMQ, sin cuenta ni servidor propio.
+// La Chromebook publica el estado en proyector/{room}/state
+// El celular publica comandos en proyector/{room}/cmd
+// Ambos se suscriben al canal del otro.
+
+let mqttClient = null;
 let remoteConnected = false;
+let _remoteRoom = null;
+let _onRemoteMessage = null;
 
 function connectRemoteWS(room, onMessage) {
-  if (remoteWs && remoteWs.readyState <= 1) return;
-  const url = 'wss://ws.vi-server.org/mirror/' + room;
-  remoteWs = new WebSocket(url);
-  remoteWs.onopen = () => { remoteConnected = true; };
-  remoteWs.onclose = () => { remoteConnected = false; setTimeout(() => connectRemoteWS(room, onMessage), 2000); };
-  remoteWs.onerror = () => { remoteConnected = false; };
-  remoteWs.onmessage = (e) => { try { onMessage(JSON.parse(e.data)); } catch(_) {} };
+  _remoteRoom = room;
+  _onRemoteMessage = onMessage;
+  if (typeof Paho === 'undefined') return;
+  if (mqttClient && mqttClient.isConnected()) return;
+
+  const clientId = 'chromebook-' + Math.random().toString(36).slice(2, 8);
+  mqttClient = new Paho.Client('broker.hivemq.com', 8884, '/mqtt', clientId);
+
+  mqttClient.onConnectionLost = function() {
+    remoteConnected = false;
+    setTimeout(() => connectRemoteWS(room, onMessage), 3000);
+  };
+  mqttClient.onMessageArrived = function(msg) {
+    try { onMessage(JSON.parse(msg.payloadString)); } catch(_) {}
+  };
+
+  mqttClient.connect({
+    useSSL: true,
+    keepAliveInterval: 30,
+    onSuccess: function() {
+      remoteConnected = true;
+      // Chromebook escucha comandos del celular
+      mqttClient.subscribe('proyector/' + room + '/cmd');
+    },
+    onFailure: function() {
+      remoteConnected = false;
+      setTimeout(() => connectRemoteWS(room, onMessage), 4000);
+    }
+  });
 }
 
 function sendRemote(data) {
-  if (remoteWs && remoteWs.readyState === WebSocket.OPEN) {
-    remoteWs.send(JSON.stringify(data));
-  }
-  // También guardar en localStorage para historial local
-  try { localStorage.setItem(REMOTE_KEY, JSON.stringify(data)); } catch(_) {}
+  if (!mqttClient || !mqttClient.isConnected() || !_remoteRoom) return;
+  const msg = new Paho.Message(JSON.stringify(data));
+  msg.destinationName = 'proyector/' + _remoteRoom + '/state';
+  msg.retained = true; // El celular recibe el último estado al conectarse
+  try { mqttClient.send(msg); } catch(_) {}
 }
 
 function publishRemoteState() {
-  if (!remoteWs || remoteWs.readyState !== WebSocket.OPEN) return;
+  if (!mqttClient || !mqttClient.isConnected()) return;
   const payload = state.liveRef ? buildPayloadFromLive() : { kind: 'blank' };
   const full = {
     type: 'state',

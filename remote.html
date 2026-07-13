@@ -128,6 +128,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* Empty state */
 .empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -176,42 +177,58 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <script>
 let currentTab = 'servicio';
 let remoteState = null;
-let ws = null;
+let mqttClient = null;
 
 // Obtener sala de la URL
 const room = new URLSearchParams(window.location.search).get('room') || 'ps-default';
 
-function connectWS() {
-  ws = new WebSocket('wss://ws.vi-server.org/mirror/' + room);
-  ws.onopen = () => {
-    // Pedir estado actual a la Chromebook
-    ws.send(JSON.stringify({ type: 'cmd', action: 'request-state', ts: Date.now() }));
-    document.getElementById('connStatus').textContent = 'Conectado';
-    document.getElementById('connStatus').style.color = '#5FB3B3';
-  };
-  ws.onclose = () => {
+function connectMQTT() {
+  const clientId = 'remote-' + Math.random().toString(36).slice(2, 8);
+  mqttClient = new Paho.Client('broker.hivemq.com', 8884, '/mqtt', clientId);
+
+  mqttClient.onConnectionLost = function() {
     document.getElementById('connStatus').textContent = 'Reconectando...';
     document.getElementById('connStatus').style.color = '#8B93A1';
-    setTimeout(connectWS, 2000);
+    setTimeout(connectMQTT, 3000);
   };
-  ws.onerror = () => {};
-  ws.onmessage = (e) => {
+
+  mqttClient.onMessageArrived = function(msg) {
     try {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'state') {
-        remoteState = msg;
+      const data = JSON.parse(msg.payloadString);
+      if (data.type === 'state') {
+        remoteState = data;
         updateHeader();
         render();
       }
     } catch(_) {}
   };
+
+  mqttClient.connect({
+    useSSL: true,
+    keepAliveInterval: 30,
+    onSuccess: function() {
+      document.getElementById('connStatus').textContent = 'Conectado';
+      document.getElementById('connStatus').style.color = '#5FB3B3';
+      // Celular escucha el estado que publica la Chromebook
+      mqttClient.subscribe('proyector/' + room + '/state');
+      // Pedir estado actual
+      sendCmd('request-state');
+    },
+    onFailure: function() {
+      document.getElementById('connStatus').textContent = 'Error de conexión';
+      document.getElementById('connStatus').style.color = '#D96C6C';
+      setTimeout(connectMQTT, 4000);
+    }
+  });
 }
-connectWS();
+connectMQTT();
 
 function sendCmd(action, extra) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!mqttClient || !mqttClient.isConnected()) return;
   const cmd = Object.assign({ type: 'cmd', action, ts: Date.now() }, extra || {});
-  ws.send(JSON.stringify(cmd));
+  const msg = new Paho.Message(JSON.stringify(cmd));
+  msg.destinationName = 'proyector/' + room + '/cmd';
+  try { mqttClient.send(msg); } catch(_) {}
 }
 
 document.getElementById('btnPrev').addEventListener('click', () => sendCmd('prev'));
