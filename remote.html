@@ -5,428 +5,342 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Control Remoto — Proyector de Servicio</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 <style>
 :root {
-  --bg: #14181F;
-  --panel: #1C232E;
-  --panel-raised: #222A36;
-  --border: #2A3340;
-  --amber: #E8AA4C;
-  --amber-dim: #8a6a36;
-  --teal: #5FB3B3;
-  --red: #D96C6C;
-  --text: #F2F0EA;
-  --text-muted: #8B93A1;
-  --text-faint: #5A6271;
+  --bg:#14181F; --panel:#1C232E; --panel-raised:#222A36;
+  --border:#2A3340; --amber:#E8AA4C; --amber-dim:#8a6a36;
+  --teal:#5FB3B3; --red:#D96C6C;
+  --text:#F2F0EA; --text-muted:#8B93A1; --text-faint:#5A6271;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif; overflow: hidden; }
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; background:var(--bg); color:var(--text); font-family:'Space Grotesk',system-ui,sans-serif; overflow:hidden; }
 
-/* Layout */
-.app {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  height: 100dvh;
-}
+/* ── LAYOUT ── */
+.app{ display:flex; flex-direction:column; height:100dvh; }
 
-/* Header */
-.header {
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+/* ── HEADER ── */
+.header{
+  background:var(--panel); border-bottom:1px solid var(--border);
+  padding:10px 14px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
 }
-.header-left { display: flex; align-items: center; gap: 10px; }
-.logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(160deg,#E8AA4C,#c98a2e); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #1a1308; font-size: 14px; flex-shrink: 0; }
-.header h1 { font-size: 14px; font-weight: 600; }
-.live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-faint); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
-.dot.on { background: var(--teal); animation: pulse 1.8s infinite; }
-@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(95,179,179,.55)} 70%{box-shadow:0 0 0 6px rgba(95,179,179,0)} 100%{box-shadow:0 0 0 0 rgba(95,179,179,0)} }
+.logo{ width:30px; height:30px; border-radius:7px; background:linear-gradient(160deg,#E8AA4C,#c98a2e); display:flex; align-items:center; justify-content:center; font-weight:700; color:#1a1308; font-size:13px; flex-shrink:0; }
+.header-title{ font-size:13px; font-weight:600; margin-left:10px; }
+.header-right{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.live-badge{ display:flex; align-items:center; gap:5px; font-size:11px; border:1px solid var(--border); border-radius:20px; padding:3px 9px; }
+.dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
+.dot.on{ background:var(--teal); animation:pulse 1.8s infinite; }
+@keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(95,179,179,.55)} 70%{box-shadow:0 0 0 5px rgba(95,179,179,0)} 100%{box-shadow:0 0 0 0 rgba(95,179,179,0)} }
+.conn-status{ font-size:10px; color:var(--text-faint); }
+.conn-status.ok{ color:var(--teal); }
 
-/* Tabs */
-.tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
-.tab { flex: 1; padding: 10px 4px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-faint); cursor: pointer; border-bottom: 2px solid transparent; transition: all .12s; }
-.tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+/* ── SCROLL PRINCIPAL ── */
+.main{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0; }
 
-/* Content */
-.content { overflow-y: auto; }
+/* ── SECCIÓN: LISTA DE SERVICIO ── */
+.section-label{
+  font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint);
+  padding:10px 14px 6px; font-weight:600;
+}
+.timeline-scroll{
+  overflow-x:auto; overflow-y:hidden; display:flex; gap:8px;
+  padding:0 14px 12px; scroll-snap-type:x mandatory;
+}
+.timeline-scroll::-webkit-scrollbar{ height:3px; }
+.timeline-scroll::-webkit-scrollbar-thumb{ background:var(--border); border-radius:2px; }
+.tl-card{
+  flex-shrink:0; width:110px; height:72px; border-radius:8px;
+  border:1px solid var(--border); background:var(--panel-raised);
+  padding:8px 10px; display:flex; flex-direction:column; justify-content:space-between;
+  cursor:pointer; scroll-snap-align:start; transition:border-color .12s;
+}
+.tl-card:active{ background:var(--panel); }
+.tl-card.live{ border-color:var(--teal); box-shadow:0 0 0 1px var(--teal); }
+.tl-type{ font-size:9px; letter-spacing:.05em; color:var(--text-faint); text-transform:uppercase; }
+.tl-title{ font-size:11px; font-weight:600; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.tl-empty{ padding:20px 14px; color:var(--text-faint); font-size:12px; }
 
-/* Proyección actual */
-.now-playing {
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 14px;
+/* ── SECCIÓN: AUDIO ── */
+.audio-section{ background:var(--panel); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.audio-top{ padding:10px 14px 8px; }
+.audio-track{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
+.audio-sub{ font-size:10px; color:var(--text-faint); margin-bottom:8px; }
+.audio-progress-wrap{ height:6px; background:var(--bg); border-radius:3px; cursor:pointer; overflow:hidden; border:1px solid var(--border); margin-bottom:8px; }
+.audio-fill{ height:100%; background:var(--teal); border-radius:3px; transition:width .8s linear; }
+.audio-controls{ display:flex; align-items:center; gap:10px; }
+.a-btn{
+  width:40px; height:40px; border-radius:50%; border:1px solid var(--border);
+  background:var(--panel-raised); color:var(--text); cursor:pointer; font-size:18px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.now-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin-bottom: 4px; }
-.now-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.slide-controls { display: flex; align-items: center; gap: 10px; }
-.slide-btn {
-  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
-  background: var(--panel-raised); color: var(--text); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-size: 22px;
-  transition: border-color .12s;
-}
-.slide-btn:active { background: var(--amber-dim); border-color: var(--amber); }
-.slide-counter { font-size: 13px; color: var(--text-muted); min-width: 44px; text-align: center; }
-.clear-btn {
-  margin-left: auto; background: transparent; border: 1px solid var(--border);
-  color: var(--text-faint); border-radius: 8px; padding: 8px 12px;
-  font-size: 12px; cursor: pointer;
-}
-.clear-btn:active { background: rgba(217,108,108,.15); border-color: var(--red); color: var(--red); }
+.a-btn.primary{ background:var(--amber); border-color:var(--amber); color:#1a1308; width:48px; height:48px; font-size:22px; }
+.a-btn:active{ filter:brightness(1.3); }
+.audio-name-scroll{ flex:1; overflow:hidden; }
 
-/* Lista de servicio */
-.list-section { padding: 10px 14px 6px; }
-.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin-bottom: 8px; display: flex; justify-content: space-between; }
-.tl-list { display: flex; flex-direction: column; gap: 6px; }
-.tl-item {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  padding: 11px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-  transition: border-color .12s;
+/* Lista de pistas horizontal */
+.audio-list-scroll{
+  overflow-x:auto; display:flex; gap:6px; padding:0 14px 10px;
+  scroll-snap-type:x mandatory;
 }
-.tl-item:active { background: var(--panel-raised); }
-.tl-item.live { border-color: var(--teal); }
-.tl-item-left { display: flex; flex-direction: column; gap: 2px; }
-.tl-item-type { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
-.tl-item-title { font-size: 14px; font-weight: 600; }
-.tl-item-arrow { color: var(--text-faint); font-size: 18px; }
-.tl-item.live .tl-item-arrow { color: var(--teal); }
+.audio-list-scroll::-webkit-scrollbar{ height:3px; }
+.audio-list-scroll::-webkit-scrollbar-thumb{ background:var(--border); border-radius:2px; }
+.audio-pill{
+  flex-shrink:0; border-radius:20px; border:1px solid var(--border);
+  background:var(--panel-raised); padding:6px 12px; cursor:pointer;
+  font-size:11px; white-space:nowrap; scroll-snap-align:start;
+  max-width:150px; overflow:hidden; text-overflow:ellipsis;
+  transition:border-color .12s;
+}
+.audio-pill:active{ background:var(--panel); }
+.audio-pill.active{ border-color:var(--teal); color:var(--teal); }
+.audio-empty{ padding:0 14px 10px; font-size:12px; color:var(--text-faint); }
 
-/* Biblioteca */
-.lib-section { padding: 10px 14px 6px; }
-.lib-search {
-  width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  padding: 10px 14px; color: var(--text); font-size: 14px; font-family: inherit; margin-bottom: 10px;
+/* ── SECCIÓN: PREVIEW ── */
+.preview-section{ padding:12px 14px; }
+.preview-frame{
+  aspect-ratio:16/9; background:#000; border-radius:10px;
+  border:1px solid var(--border); overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
 }
-.lib-item {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  padding: 12px 14px; cursor: pointer; margin-bottom: 6px;
-  display: flex; align-items: center; justify-content: space-between;
+.preview-text{
+  color:#fff; font-size:5vw; text-align:center; padding:14px;
+  line-height:1.45; white-space:pre-wrap; font-weight:600;
 }
-.lib-item:active { background: var(--panel-raised); }
-.lib-item-title { font-size: 14px; font-weight: 600; }
-.lib-item-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
-.proj-icon { color: var(--amber); font-size: 18px; }
+.preview-text .ref{ display:block; margin-top:10px; font-size:.5em; opacity:.75; font-weight:500; }
+.preview-img{ width:100%; height:100%; object-fit:contain; }
+.preview-empty{ color:#333; font-size:13px; }
 
-/* Footer nav */
-.footer-nav {
-  background: var(--panel);
-  border-top: 1px solid var(--border);
-  display: flex;
+/* ── PANEL INFERIOR: controles de diapositiva ── */
+.bottom-controls{
+  flex-shrink:0; background:var(--panel); border-top:1px solid var(--border);
+  padding:10px 14px; display:flex; align-items:center; gap:10px;
 }
-.footer-btn {
-  flex: 1; padding: 10px 4px; text-align: center; font-size: 10px; color: var(--text-faint);
-  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: transparent;
+.slide-btn{
+  width:48px; height:48px; border-radius:50%; border:1px solid var(--border);
+  background:var(--panel-raised); color:var(--text); cursor:pointer; font-size:24px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.footer-btn svg { width: 20px; height: 20px; }
-.footer-btn.active { color: var(--amber); }
-
-/* Empty state */
-.empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
-
-/* Audio player */
-.audio-player {
-  padding: 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+.slide-btn:active{ border-color:var(--amber); color:var(--amber); }
+.slide-info{ flex:1; text-align:center; }
+.slide-counter{ font-size:18px; font-weight:700; color:var(--text); }
+.slide-subtitle{ font-size:11px; color:var(--text-faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.clear-btn{
+  background:transparent; border:1px solid var(--border); color:var(--text-muted);
+  border-radius:8px; padding:10px 12px; font-size:12px; cursor:pointer; flex-shrink:0;
 }
-.audio-now { font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.audio-sub { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
-.audio-progress-wrap { height: 8px; background: var(--bg); border-radius: 4px; margin-bottom: 12px; cursor: pointer; overflow: hidden; border: 1px solid var(--border); }
-.audio-progress-fill { height: 100%; background: var(--teal); border-radius: 4px; transition: width .5s linear; }
-.audio-btns { display: flex; align-items: center; justify-content: center; gap: 16px; }
-.audio-btn {
-  width: 52px; height: 52px; border-radius: 50%;
-  border: 1px solid var(--border); background: var(--panel-raised);
-  color: var(--text); cursor: pointer; font-size: 22px;
-  display: flex; align-items: center; justify-content: center;
-}
-.audio-btn.primary { background: var(--amber); border-color: var(--amber); color: #1a1308; width: 60px; height: 60px; font-size: 26px; }
-.audio-btn:active { filter: brightness(1.2); }
+.clear-btn:active{ border-color:var(--red); color:var(--red); background:rgba(217,108,108,.1); }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 </head>
 <body>
 <div class="app">
 
-  <!-- Header -->
-  <div>
-    <div class="header">
-      <div class="header-left">
-        <div class="logo">P</div>
-        <h1>Control Remoto</h1>
+  <!-- HEADER -->
+  <div class="header">
+    <div style="display:flex;align-items:center;">
+      <div class="logo">P</div>
+      <span class="header-title">Proyector de Servicio</span>
+    </div>
+    <div class="header-right">
+      <div class="live-badge">
+        <span class="dot" id="dotLive"></span>
+        <span id="liveText">SIN SEÑAL</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
-        <div class="live-badge">
-          <span class="dot" id="dotLive"></span>
-          <span id="liveText">SIN SEÑAL</span>
+      <span class="conn-status" id="connStatus">Conectando...</span>
+    </div>
+  </div>
+
+  <!-- MAIN SCROLL -->
+  <div class="main">
+
+    <!-- LISTA DE SERVICIO -->
+    <div class="section-label">Lista de Servicio</div>
+    <div class="timeline-scroll" id="timelineScroll">
+      <div class="tl-empty">Sin lista de servicio activa.</div>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="audio-section">
+      <div class="audio-top">
+        <div class="audio-track" id="audioTrack">Sin pista seleccionada</div>
+        <div class="audio-sub" id="audioSub">—</div>
+        <div class="audio-progress-wrap" id="audioProgressWrap">
+          <div class="audio-fill" id="audioFill" style="width:0%"></div>
         </div>
-        <span id="connStatus" style="font-size:10px;color:#5A6271;">Conectando...</span>
+        <div class="audio-controls">
+          <button class="a-btn" id="rAudioPrev" title="Reiniciar">↺</button>
+          <button class="a-btn primary" id="rAudioPlay">▶</button>
+          <button class="a-btn" id="rAudioNext" title="Siguiente">⏭</button>
+        </div>
+      </div>
+      <div class="audio-list-scroll" id="audioListScroll">
+        <div class="audio-empty">Carga una carpeta de audio desde la Chromebook.</div>
       </div>
     </div>
-    <div class="tabs">
-      <div class="tab active" data-tab="servicio">📋 Servicio</div>
-      <div class="tab" data-tab="canciones">🎵 Letras</div>
-      <div class="tab" data-tab="anuncios">📢 Anuncios</div>
-      <div class="tab" data-tab="citas">📖 Citas</div>
-      <div class="tab" data-tab="audio">🎧 Audio</div>
+
+    <!-- PREVIEW -->
+    <div class="preview-section">
+      <div class="section-label" style="padding:0 0 8px;">En proyección</div>
+      <div class="preview-frame" id="previewFrame">
+        <span class="preview-empty">Nada en proyección</span>
+      </div>
     </div>
+
   </div>
 
-  <!-- Content -->
-  <div class="content" id="content">
-    <!-- se rellena dinámicamente -->
-  </div>
-
-  <!-- Footer: controles de diapositiva siempre visibles -->
-  <div style="background:var(--panel);border-top:1px solid var(--border);padding:10px 14px;">
-    <div id="nowPlaying" style="margin-bottom:8px;font-size:12px;color:var(--text-muted);">Sin proyección activa</div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <button class="slide-btn" id="btnPrev">‹</button>
-      <span class="slide-counter" id="slideCounter">-</span>
-      <button class="slide-btn" id="btnNext">›</button>
-      <button class="clear-btn" id="btnClear">✕ Limpiar</button>
+  <!-- BOTTOM CONTROLS -->
+  <div class="bottom-controls">
+    <button class="slide-btn" id="btnPrev">‹</button>
+    <div class="slide-info">
+      <div class="slide-counter" id="slideCounter">—</div>
+      <div class="slide-subtitle" id="slideSubtitle">Sin proyección</div>
     </div>
+    <button class="slide-btn" id="btnNext">›</button>
+    <button class="clear-btn" id="btnClear">✕ Limpiar</button>
   </div>
 
 </div>
 
 <script>
-let currentTab = 'servicio';
 let remoteState = null;
 let mqttClient = null;
-
-// Obtener sala de la URL
 const room = new URLSearchParams(window.location.search).get('room') || 'ps-default';
 
+// ── MQTT ──
 function connectMQTT() {
   const clientId = 'remote-' + Math.random().toString(36).slice(2, 8);
   mqttClient = new Paho.Client('broker.hivemq.com', 8884, '/mqtt', clientId);
-
   mqttClient.onConnectionLost = function() {
-    document.getElementById('connStatus').textContent = 'Reconectando...';
-    document.getElementById('connStatus').style.color = '#8B93A1';
+    setConn(false);
     setTimeout(connectMQTT, 3000);
   };
-
   mqttClient.onMessageArrived = function(msg) {
     try {
       const data = JSON.parse(msg.payloadString);
-      if (data.type === 'state') {
-        remoteState = data;
-        updateHeader();
-        render();
-      }
+      if (data.type === 'state') { remoteState = data; updateAll(); }
     } catch(_) {}
   };
-
   mqttClient.connect({
-    useSSL: true,
-    keepAliveInterval: 30,
+    useSSL: true, keepAliveInterval: 30,
     onSuccess: function() {
-      document.getElementById('connStatus').textContent = 'Conectado';
-      document.getElementById('connStatus').style.color = '#5FB3B3';
-      // Celular escucha el estado que publica la Chromebook
+      setConn(true);
       mqttClient.subscribe('proyector/' + room + '/state');
-      // Pedir estado actual
       sendCmd('request-state');
     },
-    onFailure: function() {
-      document.getElementById('connStatus').textContent = 'Error de conexión';
-      document.getElementById('connStatus').style.color = '#D96C6C';
-      setTimeout(connectMQTT, 4000);
-    }
+    onFailure: function() { setConn(false); setTimeout(connectMQTT, 4000); }
   });
 }
 connectMQTT();
 
+function setConn(ok) {
+  const el = document.getElementById('connStatus');
+  el.textContent = ok ? 'Conectado' : 'Reconectando...';
+  el.className = 'conn-status' + (ok ? ' ok' : '');
+}
+
 function sendCmd(action, extra) {
   if (!mqttClient || !mqttClient.isConnected()) return;
-  const cmd = Object.assign({ type: 'cmd', action, ts: Date.now() }, extra || {});
+  const cmd = Object.assign({ type:'cmd', action, ts:Date.now() }, extra||{});
   const msg = new Paho.Message(JSON.stringify(cmd));
   msg.destinationName = 'proyector/' + room + '/cmd';
   try { mqttClient.send(msg); } catch(_) {}
 }
 
+// ── CONTROLES ──
 document.getElementById('btnPrev').addEventListener('click', () => sendCmd('prev'));
 document.getElementById('btnNext').addEventListener('click', () => sendCmd('next'));
 document.getElementById('btnClear').addEventListener('click', () => sendCmd('clear'));
+document.getElementById('rAudioPlay').addEventListener('click', () => sendCmd('audio-play'));
+document.getElementById('rAudioNext').addEventListener('click', () => sendCmd('audio-next'));
+document.getElementById('rAudioPrev').addEventListener('click', () => sendCmd('audio-prev'));
+document.getElementById('audioProgressWrap').addEventListener('click', function(e) {
+  const rect = this.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  sendCmd('audio-seek', { ratio });
+});
 
-function setTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  render();
-}
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+// ── RENDER ──
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function render() {
-  const el = document.getElementById('content');
-  if (!remoteState) {
-    el.innerHTML = '<div class="empty">Esperando conexión con la Chromebook...<br>Asegúrate de que ambos dispositivos estén en la misma red.</div>';
-    return;
-  }
-
-  if (currentTab === 'servicio') {
-    renderServicio(el);
-  } else if (currentTab === 'audio') {
-    renderAudio(el);
-  } else {
-    renderLib(el, currentTab);
-  }
-}
-
-function renderAudio(el) {
-  const audio = (remoteState && remoteState.audio) || {};
-  const files = audio.files || [];
-  const currentIndex = typeof audio.currentIndex === 'number' ? audio.currentIndex : -1;
-  const playing = audio.playing || false;
-  const progress = audio.duration ? (audio.currentTime / audio.duration) : 0;
-  const currentName = currentIndex >= 0 && files[currentIndex] ? files[currentIndex].name : 'Sin pista seleccionada';
-
-  el.innerHTML = `
-    <div class="audio-player">
-      <div class="audio-now">${escHtml(currentName)}</div>
-      <div class="audio-sub">${currentIndex >= 0 ? (currentIndex + 1) + ' de ' + files.length + ' pistas' : 'Elige una pista de la lista'}</div>
-      <div class="audio-progress-wrap" id="audioProgressWrap">
-        <div class="audio-progress-fill" id="audioRemoteFill" style="width:${(progress * 100).toFixed(1)}%"></div>
-      </div>
-      <div class="audio-btns">
-        <button class="audio-btn" id="rAudioPrev" title="Reiniciar pista">↺</button>
-        <button class="audio-btn primary" id="rAudioPlay">${playing ? '⏸' : '▶'}</button>
-        <button class="audio-btn" id="rAudioNext" title="Siguiente pista">⏭</button>
-      </div>
-    </div>
-    <div class="lib-section">
-      <input class="lib-search" id="audioSearch" placeholder="Buscar pista..." />
-      <div id="audioList"></div>
-    </div>`;
-
-  // Controles
-  document.getElementById('rAudioPlay').addEventListener('click', () => sendCmd('audio-play'));
-  document.getElementById('rAudioNext').addEventListener('click', () => sendCmd('audio-next'));
-  document.getElementById('rAudioPrev').addEventListener('click', () => sendCmd('audio-prev'));
-
-  // Seek en la barra de progreso
-  document.getElementById('audioProgressWrap').addEventListener('click', function(e) {
-    const rect = this.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    sendCmd('audio-seek', { ratio });
-  });
-
-  // Lista de pistas
-  const search = document.getElementById('audioSearch');
-  const listEl = document.getElementById('audioList');
-
-  function renderAudioList(query) {
-    query = (query || '').toLowerCase();
-    const filtered = files.filter(f => f.name.toLowerCase().includes(query));
-    listEl.innerHTML = '';
-    if (!filtered.length) {
-      listEl.innerHTML = '<div class="empty">Sin pistas.' + (files.length === 0 ? '<br>Carga una carpeta de audio desde la Chromebook.' : '') + '</div>';
-      return;
-    }
-    filtered.forEach(function(f) {
-      const div = document.createElement('div');
-      div.className = 'lib-item' + (f.index === currentIndex ? ' selected' : '');
-      div.style.cssText = f.index === currentIndex ? 'border-color:var(--teal);' : '';
-      div.innerHTML = '<div><div class="lib-item-title">' + escHtml(f.name.replace(/\.[^.]+$/, '')) + '</div><div class="lib-item-sub">Pista ' + (f.index + 1) + '</div></div>' +
-        (f.index === currentIndex && playing ? '<div style="color:var(--teal);font-size:18px;">♪</div>' : '<div class="proj-icon" style="color:var(--text-faint);">▶</div>');
-      div.addEventListener('click', () => sendCmd('audio-select', { index: f.index }));
-      listEl.appendChild(div);
-    });
-  }
-  renderAudioList('');
-  search.addEventListener('input', () => renderAudioList(search.value));
-}
-
-function renderServicio(el) {
-  const list = remoteState.list || [];
-  if (!list.length) {
-    el.innerHTML = '<div class="empty">No hay lista de servicio activa.<br>Créala desde la Chromebook.</div>';
-    return;
-  }
-  el.innerHTML = '<div class="list-section"><div class="section-label"><span>ORDEN DEL SERVICIO</span><span>' + list.length + ' elementos</span></div><div class="tl-list" id="tlList"></div></div>';
-  const tl = document.getElementById('tlList');
-  list.forEach(function(it) {
-    const div = document.createElement('div');
-    div.className = 'tl-item' + (it.isLive ? ' live' : '');
-    div.innerHTML = '<div class="tl-item-left"><div class="tl-item-type">' + it.type + '</div><div class="tl-item-title">' + escHtml(it.title) + '</div></div><div class="tl-item-arrow">' + (it.isLive ? '▶' : '›') + '</div>';
-    div.addEventListener('click', function() {
-      sendCmd('project', { collection: it.type, refId: it.refId || '' });
-    });
-    tl.appendChild(div);
-  });
-}
-
-function renderLib(el, collection) {
-  // Leer datos de la biblioteca desde el estado remoto extendido
-  const items = (remoteState.library && remoteState.library[collection]) || [];
-  const labelMap = { canciones: 'canciones', anuncios: 'anuncios', citas: 'citas bíblicas' };
-  el.innerHTML = '<div class="lib-section"><input class="lib-search" id="libSearch" placeholder="Buscar ' + labelMap[collection] + '..." /><div id="libItems"></div></div>';
-
-  const search = document.getElementById('libSearch');
-  const container = document.getElementById('libItems');
-
-  function renderItems(query) {
-    query = (query || '').toLowerCase();
-    const filtered = items.filter(function(i) {
-      return (i.title || i.reference || '').toLowerCase().includes(query);
-    });
-    container.innerHTML = '';
-    if (!filtered.length) {
-      container.innerHTML = '<div class="empty">Sin resultados.</div>';
-      return;
-    }
-    filtered.forEach(function(item) {
-      const div = document.createElement('div');
-      div.className = 'lib-item';
-      const title = item.title || item.reference || '';
-      const sub = collection === 'canciones' ? (item.author || 'Sin autor') + ' · ' + ((item.slides || []).length) + ' diap.'
-        : collection === 'anuncios' ? (item.type === 'image' ? 'Imagen' : 'Texto')
-        : 'Cita bíblica';
-      div.innerHTML = '<div><div class="lib-item-title">' + escHtml(title) + '</div><div class="lib-item-sub">' + escHtml(sub) + '</div></div><div class="proj-icon">▶</div>';
-      div.addEventListener('click', function() {
-        sendCmd('project', { collection: collection, refId: item.id });
-      });
-      container.appendChild(div);
-    });
-  }
-  renderItems('');
-  search.addEventListener('input', function() { renderItems(search.value); });
-}
-
-function escHtml(s) {
-  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function updateAll() {
+  if (!remoteState) return;
+  updateHeader();
+  updateTimeline();
+  updateAudio();
+  updatePreview();
+  updateBottom();
 }
 
 function updateHeader() {
-  const dot = document.getElementById('dotLive');
-  const liveText = document.getElementById('liveText');
-  const nowPlaying = document.getElementById('nowPlaying');
-  const counter = document.getElementById('slideCounter');
-
-  if (!remoteState || remoteState.payload.kind === 'blank') {
-    dot.classList.remove('on');
-    liveText.textContent = 'SIN SEÑAL';
-    nowPlaying.textContent = 'Sin proyección activa';
-    counter.textContent = '-';
-    return;
-  }
-  dot.classList.add('on');
-  liveText.textContent = 'EN VIVO';
-  nowPlaying.textContent = remoteState.title || 'Proyectando';
-  if (remoteState.totalSlides > 1) {
-    counter.textContent = (remoteState.slideIndex + 1) + '/' + remoteState.totalSlides;
-  } else {
-    counter.textContent = '1/1';
-  }
+  const live = remoteState.payload && remoteState.payload.kind !== 'blank';
+  document.getElementById('dotLive').className = 'dot' + (live ? ' on' : '');
+  document.getElementById('liveText').textContent = live ? 'EN VIVO' : 'SIN SEÑAL';
 }
 
-render();
+function updateTimeline() {
+  const list = (remoteState && remoteState.list) || [];
+  const el = document.getElementById('timelineScroll');
+  if (!list.length) { el.innerHTML = '<div class="tl-empty">Sin lista de servicio activa.</div>'; return; }
+  el.innerHTML = '';
+  list.forEach(function(it) {
+    const card = document.createElement('div');
+    card.className = 'tl-card' + (it.isLive ? ' live' : '');
+    card.innerHTML = '<div class="tl-type">' + escHtml(it.type) + '</div><div class="tl-title">' + escHtml(it.title) + '</div>';
+    card.addEventListener('click', function() { sendCmd('project', { collection: it.type, refId: it.refId }); });
+    el.appendChild(card);
+  });
+}
+
+function updateAudio() {
+  const audio = (remoteState && remoteState.audio) || {};
+  const files = audio.files || [];
+  const ci = typeof audio.currentIndex === 'number' ? audio.currentIndex : -1;
+  const playing = audio.playing || false;
+  const progress = audio.duration ? (audio.currentTime / audio.duration) : 0;
+
+  document.getElementById('audioTrack').textContent = ci >= 0 && files[ci] ? files[ci].name.replace(/\.[^.]+$/, '') : 'Sin pista seleccionada';
+  document.getElementById('audioSub').textContent = files.length ? (ci >= 0 ? 'Pista ' + (ci+1) + ' de ' + files.length : files.length + ' pistas disponibles') : 'Sin pistas cargadas';
+  document.getElementById('audioFill').style.width = (progress * 100).toFixed(1) + '%';
+  document.getElementById('rAudioPlay').textContent = playing ? '⏸' : '▶';
+
+  // Lista de pistas como píldoras horizontales
+  const listEl = document.getElementById('audioListScroll');
+  if (!files.length) { listEl.innerHTML = '<div class="audio-empty">Carga una carpeta de audio desde la Chromebook.</div>'; return; }
+  listEl.innerHTML = '';
+  files.forEach(function(f) {
+    const pill = document.createElement('div');
+    pill.className = 'audio-pill' + (f.index === ci ? ' active' : '');
+    pill.textContent = f.name.replace(/\.[^.]+$/, '');
+    pill.title = f.name;
+    pill.addEventListener('click', function() { sendCmd('audio-select', { index: f.index }); });
+    listEl.appendChild(pill);
+  });
+}
+
+function updatePreview() {
+  const frame = document.getElementById('previewFrame');
+  const payload = remoteState && remoteState.payload;
+  if (!payload || payload.kind === 'blank') {
+    frame.innerHTML = '<span class="preview-empty">Nada en proyección</span>';
+    return;
+  }
+  if (payload.kind === 'image') {
+    frame.innerHTML = '<img class="preview-img" src="' + escHtml(payload.imageData) + '" />';
+    return;
+  }
+  let html = escHtml(payload.text || '').replace(/\n/g, '<br>');
+  if (payload.reference) html += '<span class="ref">— ' + escHtml(payload.reference) + '</span>';
+  frame.innerHTML = '<div class="preview-text">' + html + '</div>';
+}
+
+function updateBottom() {
+  const si = remoteState.slideIndex || 0;
+  const total = remoteState.totalSlides || 1;
+  const title = remoteState.title || '';
+  const live = remoteState.payload && remoteState.payload.kind !== 'blank';
+
+  document.getElementById('slideCounter').textContent = live ? (si+1) + ' / ' + total : '—';
+  document.getElementById('slideSubtitle').textContent = live ? title : 'Sin proyección';
+}
 </script>
 </body>
 </html>
