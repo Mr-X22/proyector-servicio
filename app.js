@@ -839,6 +839,7 @@ async function playAudioAt(i) {
   document.getElementById('audioNow').textContent = f.name;
   document.getElementById('btnAudioPlay').textContent = '⏸';
   if (state.section === 'audio') renderAudioSection();
+  publishRemoteState();
 }
 
 document.getElementById('btnAudioPlay').addEventListener('click', () => {
@@ -858,9 +859,13 @@ document.getElementById('btnAudioPrev').addEventListener('click', () => {
   state.audio.el.play();
   document.getElementById('btnAudioPlay').textContent = '⏸';
 });
+let _lastAudioPublish = 0;
 state.audio.el.addEventListener('timeupdate', () => {
   const { currentTime, duration } = state.audio.el;
   if (duration && !state.audio.scrubbing) document.getElementById('audioProgressFill').style.width = `${(currentTime / duration) * 100}%`;
+  // Publicar progreso al celular cada 3 segundos
+  const now = Date.now();
+  if (now - _lastAudioPublish > 3000) { _lastAudioPublish = now; publishRemoteState(); }
 });
 state.audio.el.addEventListener('ended', () => {
   document.getElementById('btnAudioNext').click();
@@ -985,6 +990,13 @@ function publishRemoteState() {
       anuncios: storage.list('anuncios').map(function(a) { return { id: a.id, title: a.title, type: a.type }; }),
       citas: storage.list('citas'),
     },
+    audio: {
+      files: state.audio.files.map(function(f, i) { return { name: f.name, index: i }; }),
+      currentIndex: state.audio.currentIndex,
+      playing: !state.audio.el.paused,
+      currentTime: state.audio.el.currentTime,
+      duration: state.audio.el.duration || 0,
+    },
     ts: Date.now(),
   };
   sendRemote(full);
@@ -1001,6 +1013,27 @@ function handleRemoteMessage(msg) {
       if (item) { projectItem(msg.collection, item, 0); renderTimeline(); }
     }
     else if (msg.action === 'request-state') publishRemoteState();
+    // Comandos de audio
+    else if (msg.action === 'audio-play') {
+      if (state.audio.el.paused) { state.audio.el.play(); document.getElementById('btnAudioPlay').textContent = '⏸'; }
+      else { state.audio.el.pause(); document.getElementById('btnAudioPlay').textContent = '▶'; }
+      publishRemoteState();
+    }
+    else if (msg.action === 'audio-next') {
+      document.getElementById('btnAudioNext').click();
+    }
+    else if (msg.action === 'audio-prev') {
+      document.getElementById('btnAudioPrev').click();
+    }
+    else if (msg.action === 'audio-select' && typeof msg.index === 'number') {
+      playAudioAt(msg.index);
+    }
+    else if (msg.action === 'audio-seek' && typeof msg.ratio === 'number') {
+      if (state.audio.el.duration) {
+        state.audio.el.currentTime = msg.ratio * state.audio.el.duration;
+        publishRemoteState();
+      }
+    }
   }
 }
 

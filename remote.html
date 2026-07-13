@@ -127,6 +127,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 /* Empty state */
 .empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
+
+/* Audio player */
+.audio-player {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.audio-now { font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-sub { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
+.audio-progress-wrap { height: 8px; background: var(--bg); border-radius: 4px; margin-bottom: 12px; cursor: pointer; overflow: hidden; border: 1px solid var(--border); }
+.audio-progress-fill { height: 100%; background: var(--teal); border-radius: 4px; transition: width .5s linear; }
+.audio-btns { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.audio-btn {
+  width: 52px; height: 52px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--panel-raised);
+  color: var(--text); cursor: pointer; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.audio-btn.primary { background: var(--amber); border-color: var(--amber); color: #1a1308; width: 60px; height: 60px; font-size: 26px; }
+.audio-btn:active { filter: brightness(1.2); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 </head>
@@ -153,6 +173,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="tab" data-tab="canciones">🎵 Letras</div>
       <div class="tab" data-tab="anuncios">📢 Anuncios</div>
       <div class="tab" data-tab="citas">📖 Citas</div>
+      <div class="tab" data-tab="audio">🎧 Audio</div>
     </div>
   </div>
 
@@ -251,9 +272,75 @@ function render() {
 
   if (currentTab === 'servicio') {
     renderServicio(el);
+  } else if (currentTab === 'audio') {
+    renderAudio(el);
   } else {
     renderLib(el, currentTab);
   }
+}
+
+function renderAudio(el) {
+  const audio = (remoteState && remoteState.audio) || {};
+  const files = audio.files || [];
+  const currentIndex = typeof audio.currentIndex === 'number' ? audio.currentIndex : -1;
+  const playing = audio.playing || false;
+  const progress = audio.duration ? (audio.currentTime / audio.duration) : 0;
+  const currentName = currentIndex >= 0 && files[currentIndex] ? files[currentIndex].name : 'Sin pista seleccionada';
+
+  el.innerHTML = `
+    <div class="audio-player">
+      <div class="audio-now">${escHtml(currentName)}</div>
+      <div class="audio-sub">${currentIndex >= 0 ? (currentIndex + 1) + ' de ' + files.length + ' pistas' : 'Elige una pista de la lista'}</div>
+      <div class="audio-progress-wrap" id="audioProgressWrap">
+        <div class="audio-progress-fill" id="audioRemoteFill" style="width:${(progress * 100).toFixed(1)}%"></div>
+      </div>
+      <div class="audio-btns">
+        <button class="audio-btn" id="rAudioPrev" title="Reiniciar pista">↺</button>
+        <button class="audio-btn primary" id="rAudioPlay">${playing ? '⏸' : '▶'}</button>
+        <button class="audio-btn" id="rAudioNext" title="Siguiente pista">⏭</button>
+      </div>
+    </div>
+    <div class="lib-section">
+      <input class="lib-search" id="audioSearch" placeholder="Buscar pista..." />
+      <div id="audioList"></div>
+    </div>`;
+
+  // Controles
+  document.getElementById('rAudioPlay').addEventListener('click', () => sendCmd('audio-play'));
+  document.getElementById('rAudioNext').addEventListener('click', () => sendCmd('audio-next'));
+  document.getElementById('rAudioPrev').addEventListener('click', () => sendCmd('audio-prev'));
+
+  // Seek en la barra de progreso
+  document.getElementById('audioProgressWrap').addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    sendCmd('audio-seek', { ratio });
+  });
+
+  // Lista de pistas
+  const search = document.getElementById('audioSearch');
+  const listEl = document.getElementById('audioList');
+
+  function renderAudioList(query) {
+    query = (query || '').toLowerCase();
+    const filtered = files.filter(f => f.name.toLowerCase().includes(query));
+    listEl.innerHTML = '';
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="empty">Sin pistas.' + (files.length === 0 ? '<br>Carga una carpeta de audio desde la Chromebook.' : '') + '</div>';
+      return;
+    }
+    filtered.forEach(function(f) {
+      const div = document.createElement('div');
+      div.className = 'lib-item' + (f.index === currentIndex ? ' selected' : '');
+      div.style.cssText = f.index === currentIndex ? 'border-color:var(--teal);' : '';
+      div.innerHTML = '<div><div class="lib-item-title">' + escHtml(f.name.replace(/\.[^.]+$/, '')) + '</div><div class="lib-item-sub">Pista ' + (f.index + 1) + '</div></div>' +
+        (f.index === currentIndex && playing ? '<div style="color:var(--teal);font-size:18px;">♪</div>' : '<div class="proj-icon" style="color:var(--text-faint);">▶</div>');
+      div.addEventListener('click', () => sendCmd('audio-select', { index: f.index }));
+      listEl.appendChild(div);
+    });
+  }
+  renderAudioList('');
+  search.addEventListener('input', () => renderAudioList(search.value));
 }
 
 function renderServicio(el) {
