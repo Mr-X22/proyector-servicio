@@ -1078,6 +1078,10 @@ document.getElementById('btnRemoteControl').addEventListener('click', () => {
     return;
   }
 
+  // Desbloquear el audio con este gesto del usuario para que el celular
+  // pueda disparar .play() sin restricción de autoplay de Chrome.
+  state.audio.el.play().then(() => { state.audio.el.pause(); state.audio.el.currentTime = 0; }).catch(() => {});
+
   const room = getRemoteRoom();
   // Conectar MQTT si no está conectado
   if (!mqttClient || !mqttClient.isConnected()) {
@@ -1132,6 +1136,16 @@ if (IS_REMOTE) {
   // En modo remoto, el celular también puede enviar comandos
   // Sobreescribir projectItem para que envíe el comando en vez de proyectar localmente
 }
+
+// ---------- tema de proyección ----------
+let projTheme = 'dark';
+
+document.getElementById('btnToggleTheme').addEventListener('click', () => {
+  projTheme = projTheme === 'dark' ? 'light' : 'dark';
+  const btn = document.getElementById('btnToggleTheme');
+  btn.textContent = projTheme === 'dark' ? '☀️ Fondo blanco' : '🌙 Fondo negro';
+  channel.postMessage({ type: 'theme', theme: projTheme });
+});
 
 // ---------- inicio ----------
 boot();
