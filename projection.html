@@ -5,12 +5,13 @@
 <title>Proyección</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
-  html,body{height:100%;margin:0;background:#000;overflow:hidden;cursor:none;transition:background .3s;}
-  body.light{background:#fff;}
-  body.light #content{color:#111;text-shadow:none;}
+  html,body{height:100%;margin:0;background:#000;overflow:hidden;cursor:none;}
+  #stage{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:#000;transition:background .3s;}
+  body.light #stage{background:#fff;}
+  body.light #content{color:#111 !important;text-shadow:none !important;}
+  body.light #content .ref{color:#333 !important;}
   #stage{
     width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;
-    background:#000;
   }
   #content{
     font-family:'Space Grotesk', system-ui, sans-serif;
