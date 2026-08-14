@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Proyector de Servicio — Control</title>
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LiteWorship — Control</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -17,58 +17,58 @@
 
   <!-- RAIL -->
   <nav class="rail">
-    <div class="rail-logo">P</div>
-    <button class="rail-btn active" data-section="canciones" title="Canciones">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      Letras
+    <div class="rail-logo">LW</div>
+    <button class="rail-btn active" data-section="canciones" title="Letras de canciones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Letras
     </button>
     <button class="rail-btn" data-section="anuncios" title="Anuncios">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
-      Anuncios
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>Anuncios
     </button>
     <button class="rail-btn" data-section="citas" title="Citas bíblicas">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      Citas
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Citas
     </button>
-    <button class="rail-btn" data-section="audio" title="Audio">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      Audio
+    <button class="rail-btn" data-section="biblia" title="Biblia RVR60">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Biblia
+    </button>
+    <button class="rail-btn" data-section="audio" title="Reproductor de audio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>Audio
     </button>
     <div class="rail-spacer"></div>
-    <button class="rail-btn" id="btnRemoteControl" title="Control remoto por celular">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
-      Remoto
+    <button class="rail-btn" id="btnRemoteControl" title="Control remoto">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>Remoto
     </button>
-    <button class="rail-btn" id="btnProjectorWindow" title="Abrir ventana de proyección">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      Proyectar
+    <button class="rail-btn" id="btnProjectorWindow" title="Abrir proyección">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Proyectar
     </button>
-    <div class="rail-status" title="Estado de proyección">
+    <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
       <span class="dot-live" id="dotLive"></span>
     </div>
+    <button class="rail-btn" id="btnAbout" title="Acerca de LiteWorship" style="margin-bottom:6px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      Info
+    </button>
   </nav>
 
   <!-- LIBRARY -->
   <section class="library">
-    <!-- Barra de estado visible solo en móvil -->
     <div class="mobile-proj-bar" id="mobileProjBar">
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:7px;">
         <span class="dot-live" id="dotLiveMobile"></span>
         <span id="mobileProjTitle" style="font-size:12px;color:var(--text-muted);">Sin proyección</span>
       </div>
       <div class="slide-nav">
         <button class="nav-btn" id="btnPrevSlideMobile">‹</button>
-        <span id="slideCounterMobile" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:36px;text-align:center;">-</span>
+        <span id="slideCounterMobile" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:34px;text-align:center;">-</span>
         <button class="nav-btn" id="btnNextSlideMobile">›</button>
-        <button class="mobile-clear-btn" id="btnClearMobile">✕ Limpiar</button>
+        <button class="mobile-clear-btn" id="btnClearMobile">✕</button>
       </div>
     </div>
     <div class="lib-head">
-      <h2 id="libTitle">Letras de canciones</h2>
-      <span class="count-pill" id="libCount">0/10</span>
+      <h2 id="libTitle">Letras</h2>
+      <span class="count-pill" id="libCount">0</span>
     </div>
     <button class="lib-add" id="btnAdd">+ Agregar nueva</button>
-    <input class="lib-search" id="libSearch" placeholder="Buscar..." />
+    <input class="lib-search" id="libSearch" placeholder="Buscar..."/>
     <div class="lib-list" id="libList"></div>
   </section>
 
@@ -76,7 +76,7 @@
   <section class="editor" id="editor">
     <div class="editor-empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      <p>Selecciona un elemento de la lista o agrega uno nuevo.</p>
+      <p>Selecciona un elemento o agrega uno nuevo.</p>
     </div>
   </section>
 
@@ -86,38 +86,62 @@
       <h2>Proyección</h2>
       <span class="live-badge" id="liveBadge"><span class="dot-live" id="dotLive2"></span><span id="liveText">SIN SEÑAL</span></span>
     </div>
-    <div class="proj-frame" id="projFrame">
-      <span class="ph-text" id="projFrameText">Nada en proyección</span>
-    </div>
+    <div class="proj-frame" id="projFrame"><span class="ph-text">Nada en proyección</span></div>
     <div class="slide-nav hidden" id="slideNav">
       <button class="nav-btn" id="btnPrevSlide">‹</button>
       <span class="nav-counter" id="slideCounter">1/1</span>
       <button class="nav-btn" id="btnNextSlide">›</button>
     </div>
-    <button class="btn proj-open-btn" id="btnOpenProjector" style="justify-content:center;width:calc(100% - 32px);">Abrir ventana de proyección</button>
-    <button class="btn btn-ghost clear-proj" id="btnClearProj" style="justify-content:center;width:calc(100% - 32px);">Limpiar pantalla</button>
-    <button class="btn btn-ghost clear-proj" id="btnToggleTheme" style="justify-content:center;width:calc(100% - 32px);">☀️ Fondo blanco</button>
+    <div class="proj-actions">
+      <button class="btn" id="btnOpenProjector" style="width:100%;">Abrir ventana de proyección</button>
+      <button class="btn btn-ghost" id="btnClearProj" style="width:100%;">Limpiar pantalla</button>
+      <button class="btn btn-ghost" id="btnToggleTheme" style="width:100%;">☀️ Fondo blanco</button>
+    </div>
 
+    <!-- Fuente y tamaño -->
+    <div class="settings-row">
+      <label>Fuente</label>
+      <select id="projFont">
+        <option value="'Space Grotesk',sans-serif">Space Grotesk</option>
+        <option value="Arial,sans-serif">Arial</option>
+        <option value="'Times New Roman',serif">Times New Roman</option>
+        <option value="Georgia,serif">Georgia</option>
+        <option value="Verdana,sans-serif">Verdana</option>
+        <option value="Impact,sans-serif">Impact</option>
+        <option value="'Courier New',monospace">Courier New</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <label>Tamaño</label>
+      <select id="projSize">
+        <option value="4vw">Pequeño</option>
+        <option value="5.2vw" selected>Mediano</option>
+        <option value="6.5vw">Grande</option>
+        <option value="8vw">Extra grande</option>
+      </select>
+    </div>
+
+    <!-- Audio -->
     <div class="audio-box">
-      <h3>Reproductor de audio</h3>
+      <h3>Audio</h3>
       <div class="audio-now" id="audioNow">Sin pista seleccionada</div>
-      <div class="audio-progress" id="audioProgress" style="cursor:pointer;"><div class="audio-progress-fill" id="audioProgressFill"></div></div>
-      <div class="audio-controls" style="margin-top:8px;">
-        <button class="nav-btn" id="btnAudioPrev" title="Reiniciar pista actual">↺</button>
+      <div class="audio-progress" id="audioProgress"><div class="audio-progress-fill" id="audioProgressFill"></div></div>
+      <div class="audio-controls">
+        <button class="nav-btn" id="btnAudioPrev" title="Reiniciar pista">↺</button>
         <button class="nav-btn" id="btnAudioPlay">▶</button>
         <button class="nav-btn" id="btnAudioNext">⏭</button>
         <div style="flex:1"></div>
         <button class="icon-btn" id="btnAudioFolder" title="Elegir carpeta de audio">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
         </button>
       </div>
     </div>
   </aside>
 
-  <!-- BOTTOM STRIP: SERVICE LIST -->
+  <!-- STRIP -->
   <section class="strip">
     <div class="strip-side">
-      <label class="field-label" style="margin:0;">Lista de servicio</label>
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);font-weight:700;">Lista de servicio</label>
       <select id="listSelect"></select>
       <div class="strip-side-btns">
         <button class="btn" id="btnNewList">+ Nueva</button>
@@ -125,21 +149,21 @@
       </div>
     </div>
     <div class="timeline" id="timeline"></div>
-    <div style="display:flex;align-items:center;">
+    <div style="display:flex;align-items:center;flex-shrink:0;">
       <button class="btn btn-primary" id="btnAddToList" style="white-space:nowrap;">+ Agregar a la lista</button>
     </div>
   </section>
 
 </div>
-
 <div id="modalRoot"></div>
 <div id="toastRoot"></div>
 
 <script src="storage.js"></script>
+<script src="bible.js"></script>
 <script src="app.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   }
 </script>
 </body>

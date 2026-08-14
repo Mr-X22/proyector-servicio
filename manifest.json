@@ -1,7 +1,7 @@
 {
-  "name": "Proyector de Servicio",
-  "short_name": "Proyector",
-  "description": "Software de control y proyección para servicios, estilo Holyrics, ligero para Chromebook.",
+  "name": "LiteWorship",
+  "short_name": "LiteWorship",
+  "description": "LiteWorship — Control de proyección para servicios de alabanza. © 2026 Emanuel Marzano.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

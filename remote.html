@@ -1,134 +1,149 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Control Remoto — Proyector de Servicio</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Control Remoto — LiteWorship</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 <style>
-:root {
-  --bg:#14181F; --panel:#1C232E; --panel-raised:#222A36;
-  --border:#2A3340; --amber:#E8AA4C; --amber-dim:#8a6a36;
-  --teal:#5FB3B3; --red:#D96C6C;
-  --text:#F2F0EA; --text-muted:#8B93A1; --text-faint:#5A6271;
-}
-*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-html,body{ height:100%; background:var(--bg); color:var(--text); font-family:'Space Grotesk',system-ui,sans-serif; overflow:hidden; }
+:root{--bg:#0F1319;--panel:#171D27;--panel-raised:#1E2535;--border:#252E3D;--amber:#E8AA4C;--teal:#4DB3B3;--red:#D96C6C;--text:#EEE9E0;--text-muted:#7D8899;--text-faint:#485263;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100dvh;}
 
-/* ── LAYOUT ── */
-.app{ display:flex; flex-direction:column; height:100dvh; }
+/* HEADER */
+.header{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(145deg,#E8AA4C,#b8821c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a1005;font-size:13px;flex-shrink:0;}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:11px;border:1px solid var(--border);border-radius:20px;padding:3px 9px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
+.dot.on{background:var(--teal);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(77,179,179,.55)}70%{box-shadow:0 0 0 5px rgba(77,179,179,0)}100%{box-shadow:0 0 0 0 rgba(77,179,179,0)}}
+.conn-ok{color:var(--teal);font-size:10px;}
+.conn-wait{color:var(--text-faint);font-size:10px;}
 
-/* ── HEADER ── */
-.header{
-  background:var(--panel); border-bottom:1px solid var(--border);
-  padding:10px 14px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
-}
-.logo{ width:30px; height:30px; border-radius:7px; background:linear-gradient(160deg,#E8AA4C,#c98a2e); display:flex; align-items:center; justify-content:center; font-weight:700; color:#1a1308; font-size:13px; flex-shrink:0; }
-.header-title{ font-size:13px; font-weight:600; margin-left:10px; }
-.header-right{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
-.live-badge{ display:flex; align-items:center; gap:5px; font-size:11px; border:1px solid var(--border); border-radius:20px; padding:3px 9px; }
-.dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
-.dot.on{ background:var(--teal); animation:pulse 1.8s infinite; }
-@keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(95,179,179,.55)} 70%{box-shadow:0 0 0 5px rgba(95,179,179,0)} 100%{box-shadow:0 0 0 0 rgba(95,179,179,0)} }
-.conn-status{ font-size:10px; color:var(--text-faint); }
-.conn-status.ok{ color:var(--teal); }
+/* TABS — solo 2 */
+.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{flex:1;padding:12px 4px;text-align:center;font-size:13px;font-weight:600;color:var(--text-faint);cursor:pointer;border-bottom:2px solid transparent;}
+.tab-disabled{opacity:.35;cursor:not-allowed;}
+.tab.active{color:var(--amber);border-bottom-color:var(--amber);}
 
-/* ── SCROLL PRINCIPAL ── */
-.main{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0; }
+/* SCROLL MAIN */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;}
 
-/* ── SECCIÓN: LISTA DE SERVICIO ── */
-.section-label{
-  font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint);
-  padding:10px 14px 6px; font-weight:600;
-}
-.timeline-scroll{
-  overflow-x:auto; overflow-y:hidden; display:flex; gap:8px;
-  padding:0 14px 12px; scroll-snap-type:x mandatory;
-}
-.timeline-scroll::-webkit-scrollbar{ height:3px; }
-.timeline-scroll::-webkit-scrollbar-thumb{ background:var(--border); border-radius:2px; }
-.tl-card{
-  flex-shrink:0; width:110px; height:72px; border-radius:8px;
-  border:1px solid var(--border); background:var(--panel-raised);
-  padding:8px 10px; display:flex; flex-direction:column; justify-content:space-between;
-  cursor:pointer; scroll-snap-align:start; transition:border-color .12s;
-}
-.tl-card:active{ background:var(--panel); }
-.tl-card.live{ border-color:var(--teal); box-shadow:0 0 0 1px var(--teal); }
-.tl-type{ font-size:9px; letter-spacing:.05em; color:var(--text-faint); text-transform:uppercase; }
-.tl-title{ font-size:11px; font-weight:600; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.tl-empty{ padding:20px 14px; color:var(--text-faint); font-size:12px; }
+/* ── PESTAÑA SERVICIO ── */
 
-/* ── SECCIÓN: AUDIO ── */
-.audio-section{ background:var(--panel); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
-.audio-top{ padding:10px 14px 8px; }
-.audio-track{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
-.audio-sub{ font-size:10px; color:var(--text-faint); margin-bottom:8px; }
-.audio-progress-wrap{ height:6px; background:var(--bg); border-radius:3px; cursor:pointer; overflow:hidden; border:1px solid var(--border); margin-bottom:8px; }
-.audio-fill{ height:100%; background:var(--teal); border-radius:3px; transition:width .8s linear; }
-.audio-controls{ display:flex; align-items:center; gap:10px; }
-.a-btn{
-  width:40px; height:40px; border-radius:50%; border:1px solid var(--border);
-  background:var(--panel-raised); color:var(--text); cursor:pointer; font-size:18px;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-}
-.a-btn.primary{ background:var(--amber); border-color:var(--amber); color:#1a1308; width:48px; height:48px; font-size:22px; }
-.a-btn:active{ filter:brightness(1.3); }
-.audio-name-scroll{ flex:1; overflow:hidden; }
+/* Preview */
+.preview-wrap{padding:12px 14px 10px;flex-shrink:0;}
+.preview-frame{aspect-ratio:16/9;background:#000;border-radius:10px;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.preview-text{color:#fff;font-size:5vw;text-align:center;padding:14px;line-height:1.45;white-space:pre-wrap;font-weight:600;}
+.preview-text .ref{display:block;margin-top:8px;font-size:.5em;opacity:.75;}
+.preview-img{width:100%;height:100%;object-fit:contain;}
+.preview-empty{color:#333;font-size:13px;}
 
-/* Lista de pistas horizontal */
-.audio-list-scroll{
-  overflow-x:auto; display:flex; gap:6px; padding:0 14px 10px;
-  scroll-snap-type:x mandatory;
-}
-.audio-list-scroll::-webkit-scrollbar{ height:3px; }
-.audio-list-scroll::-webkit-scrollbar-thumb{ background:var(--border); border-radius:2px; }
-.audio-pill{
-  flex-shrink:0; border-radius:20px; border:1px solid var(--border);
-  background:var(--panel-raised); padding:6px 12px; cursor:pointer;
-  font-size:11px; white-space:nowrap; scroll-snap-align:start;
-  max-width:150px; overflow:hidden; text-overflow:ellipsis;
-  transition:border-color .12s;
-}
-.audio-pill:active{ background:var(--panel); }
-.audio-pill.active{ border-color:var(--teal); color:var(--teal); }
-.audio-empty{ padding:0 14px 10px; font-size:12px; color:var(--text-faint); }
+/* Lista de servicio horizontal */
+.section-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);padding:6px 14px 4px;font-weight:700;flex-shrink:0;}
+.tl-scroll{overflow-x:auto;display:flex;gap:8px;padding:4px 14px 10px;scroll-snap-type:x mandatory;flex-shrink:0;}
+.tl-scroll::-webkit-scrollbar{height:3px;}
+.tl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.tl-card{flex-shrink:0;width:110px;height:72px;border-radius:8px;border:1px solid var(--border);background:var(--panel-raised);padding:8px 10px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;scroll-snap-align:start;transition:border-color .1s;}
+.tl-card:active{background:var(--panel);}
+.tl-card.live{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal);}
+.tl-type{font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+.tl-title{font-size:11px;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.tl-empty{padding:10px 14px;color:var(--text-faint);font-size:12px;}
 
-/* ── SECCIÓN: PREVIEW ── */
-.preview-section{ padding:12px 14px; }
-.preview-frame{
-  aspect-ratio:16/9; background:#000; border-radius:10px;
-  border:1px solid var(--border); overflow:hidden;
-  display:flex; align-items:center; justify-content:center;
-}
-.preview-text{
-  color:#fff; font-size:5vw; text-align:center; padding:14px;
-  line-height:1.45; white-space:pre-wrap; font-weight:600;
-}
-.preview-text .ref{ display:block; margin-top:10px; font-size:.5em; opacity:.75; font-weight:500; }
-.preview-img{ width:100%; height:100%; object-fit:contain; }
-.preview-empty{ color:#333; font-size:13px; }
+/* Audio */
+.audio-sec{background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;}
+.audio-top{padding:10px 14px 8px;}
+.audio-track{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.audio-sub{font-size:10px;color:var(--text-faint);margin-bottom:8px;}
+.audio-prog-wrap{height:6px;background:var(--bg);border-radius:3px;cursor:pointer;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
+.audio-fill{height:100%;background:var(--teal);transition:width .8s linear;}
+.audio-btns{display:flex;align-items:center;gap:10px;}
+.a-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:var(--panel-raised);color:var(--text);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:filter .1s;}
+.a-btn.pri{background:var(--amber);border-color:var(--amber);color:#1a1005;width:50px;height:50px;font-size:24px;}
+.a-btn:active{filter:brightness(1.3);}
+.audio-pills{overflow-x:auto;display:flex;gap:6px;padding:0 14px 10px;scroll-snap-type:x mandatory;}
+.audio-pills::-webkit-scrollbar{height:3px;}
+.audio-pill{flex-shrink:0;border-radius:20px;border:1px solid var(--border);background:var(--panel-raised);padding:6px 14px;cursor:pointer;font-size:12px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;scroll-snap-align:start;}
+.audio-pill.active{border-color:var(--teal);color:var(--teal);}
+.audio-pill:active{filter:brightness(1.2);}
+.audio-empty{padding:0 14px 10px;font-size:12px;color:var(--text-faint);}
 
-/* ── PANEL INFERIOR: controles de diapositiva ── */
-.bottom-controls{
-  flex-shrink:0; background:var(--panel); border-top:1px solid var(--border);
-  padding:10px 14px; display:flex; align-items:center; gap:10px;
+/* ── PESTAÑA BIBLIA ── */
+.bible-sec{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
+.bible-sel{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px 10px;font-size:13px;margin-bottom:2px;}
+.chap-grid-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);font-weight:700;margin-bottom:4px;}
+.chap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:5px;margin-bottom:8px;flex-shrink:0;}
+.chap-btn{height:38px;border:1px solid var(--border);border-radius:6px;background:var(--panel-raised);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;}
+.chap-btn:active{filter:brightness(1.2);}
+.chap-btn.active{background:var(--amber);border-color:var(--amber);color:#1a1005;}
+
+/* Barra de proyectar siempre visible */
+.bible-proj-bar{display:flex;align-items:center;justify-content:space-between;background:var(--panel-raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px;flex-shrink:0;}
+.bible-sel-counter{font-size:12px;color:var(--text-muted);}
+.bible-sel-counter span{color:var(--amber);font-weight:700;}
+.bible-proj-btn{background:var(--amber);color:#1a1005;border:none;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;}
+.bible-proj-btn:disabled{background:var(--border);color:var(--text-faint);cursor:not-allowed;}
+.bible-proj-btn:active:not(:disabled){filter:brightness(1.1);}
+
+.bible-verse-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:100px;}
+.bv-item{padding:9px 10px;border-radius:6px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;border:1px solid transparent;transition:all .1s;}
+.bv-item:active{background:var(--panel-raised);}
+.bv-item.sel{background:var(--panel-raised);border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber);}
+.bv-item.dim{opacity:.4;cursor:not-allowed;}
+.bv-num{font-size:12px;color:var(--amber);font-weight:700;flex-shrink:0;min-width:22px;margin-top:2px;}
+.bv-text{font-size:13px;line-height:1.55;}
+.bible-loading{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px;padding:20px 0;}
+.spinner{width:22px;height:22px;border:3px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* BOTTOM BAR */
+.bottom{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.slide-btn{width:48px;height:48px;border-radius:50%;border:1px solid var(--border);background:var(--panel-raised);color:var(--text);font-size:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.slide-btn:active{border-color:var(--amber);color:var(--amber);}
+.slide-info{flex:1;text-align:center;min-width:0;}
+.slide-ctr{font-size:18px;font-weight:700;}
+.slide-sub{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.clear-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:10px 12px;font-size:12px;cursor:pointer;flex-shrink:0;}
+.clear-btn:active{border-color:var(--red);color:var(--red);}
+
+/* Grid de libros móvil */
+.mob-book-sec{padding:8px 14px;flex:1;overflow-y:auto;}
+.mob-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.55);font-weight:700;padding:8px 0 4px;}
+.mob-book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px;margin-bottom:2px;}
+.mob-book-btn{height:48px;border-radius:6px;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:3px;transition:filter .1s;}
+.mob-book-btn:active{filter:brightness(1.3);}
+.mob-book-btn.sel{outline:2px solid #fff;outline-offset:1px;}
+.mob-book-abbr{font-size:13px;font-weight:800;color:#fff;line-height:1;}
+.mob-book-nm{font-size:7.5px;color:rgba(255,255,255,.7);text-align:center;line-height:1.1;}
+
+/* Navegación Biblia móvil */
+.mob-bible-nav{display:flex;align-items:center;gap:6px;padding:8px 14px 4px;flex-shrink:0;}
+.mob-back-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;}
+.mob-back-btn:active{background:var(--panel-raised);}
+.mob-nav-title{font-size:13px;font-weight:600;}
+.mob-chap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:5px;padding:4px 14px 10px;flex-shrink:0;}
+.mob-chap-btn{height:40px;border:1px solid var(--border);border-radius:6px;background:var(--panel-raised);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mob-chap-btn.active{background:var(--amber);border-color:var(--amber);color:#1a1005;}
+.mob-chap-btn:active{filter:brightness(1.2);}
+
+/* TABLET */
+@media(min-width:600px){
+  .tab{font-size:14px;}
+  .tl-card{width:130px;height:80px;}
+  .a-btn{width:48px;height:48px;}
+  .a-btn.pri{width:56px;height:56px;}
+  .slide-btn{width:56px;height:56px;}
+  .preview-text{font-size:3.5vw;}
+  .bv-text{font-size:14px;}
+  .chap-btn{height:42px;font-size:14px;}
 }
-.slide-btn{
-  width:48px; height:48px; border-radius:50%; border:1px solid var(--border);
-  background:var(--panel-raised); color:var(--text); cursor:pointer; font-size:24px;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+@media(min-width:900px){
+  .preview-text{font-size:2.5vw;}
 }
-.slide-btn:active{ border-color:var(--amber); color:var(--amber); }
-.slide-info{ flex:1; text-align:center; }
-.slide-counter{ font-size:18px; font-weight:700; color:var(--text); }
-.slide-subtitle{ font-size:11px; color:var(--text-faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.clear-btn{
-  background:transparent; border:1px solid var(--border); color:var(--text-muted);
-  border-radius:8px; padding:10px 12px; font-size:12px; cursor:pointer; flex-shrink:0;
-}
-.clear-btn:active{ border-color:var(--red); color:var(--red); background:rgba(217,108,108,.1); }
 </style>
 </head>
 <body>
@@ -136,63 +151,31 @@ html,body{ height:100%; background:var(--bg); color:var(--text); font-family:'Sp
 
   <!-- HEADER -->
   <div class="header">
-    <div style="display:flex;align-items:center;">
-      <div class="logo">P</div>
-      <span class="header-title">Proyector de Servicio</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="logo">LW</div>
+      <span style="font-size:13px;font-weight:600;">LiteWorship</span>
     </div>
     <div class="header-right">
-      <div class="live-badge">
-        <span class="dot" id="dotLive"></span>
-        <span id="liveText">SIN SEÑAL</span>
-      </div>
-      <span class="conn-status" id="connStatus">Conectando...</span>
+      <div class="live-badge"><span class="dot" id="dotLive"></span><span id="liveText">SIN SEÑAL</span></div>
+      <span id="connStatus" class="conn-wait">Conectando...</span>
     </div>
   </div>
 
-  <!-- MAIN SCROLL -->
-  <div class="main">
-
-    <!-- LISTA DE SERVICIO -->
-    <div class="section-label">Lista de Servicio</div>
-    <div class="timeline-scroll" id="timelineScroll">
-      <div class="tl-empty">Sin lista de servicio activa.</div>
-    </div>
-
-    <!-- AUDIO -->
-    <div class="audio-section">
-      <div class="audio-top">
-        <div class="audio-track" id="audioTrack">Sin pista seleccionada</div>
-        <div class="audio-sub" id="audioSub">—</div>
-        <div class="audio-progress-wrap" id="audioProgressWrap">
-          <div class="audio-fill" id="audioFill" style="width:0%"></div>
-        </div>
-        <div class="audio-controls">
-          <button class="a-btn" id="rAudioPrev" title="Reiniciar">↺</button>
-          <button class="a-btn primary" id="rAudioPlay">▶</button>
-          <button class="a-btn" id="rAudioNext" title="Siguiente">⏭</button>
-        </div>
-      </div>
-      <div class="audio-list-scroll" id="audioListScroll">
-        <div class="audio-empty">Carga una carpeta de audio desde la Chromebook.</div>
-      </div>
-    </div>
-
-    <!-- PREVIEW -->
-    <div class="preview-section">
-      <div class="section-label" style="padding:0 0 8px;">En proyección</div>
-      <div class="preview-frame" id="previewFrame">
-        <span class="preview-empty">Nada en proyección</span>
-      </div>
-    </div>
-
+  <!-- SOLO 2 TABS -->
+  <div class="tabs">
+    <div class="tab active" data-tab="servicio">📋 Servicio</div>
+    <div class="tab" data-tab="biblia" id="tabBiblia">✝️ Biblia</div>
   </div>
 
-  <!-- BOTTOM CONTROLS -->
-  <div class="bottom-controls">
+  <!-- CONTENIDO -->
+  <div class="main" id="main"></div>
+
+  <!-- BARRA INFERIOR FIJA -->
+  <div class="bottom">
     <button class="slide-btn" id="btnPrev">‹</button>
     <div class="slide-info">
-      <div class="slide-counter" id="slideCounter">—</div>
-      <div class="slide-subtitle" id="slideSubtitle">Sin proyección</div>
+      <div class="slide-ctr" id="slideCtr">—</div>
+      <div class="slide-sub" id="slideSub">Sin proyección</div>
     </div>
     <button class="slide-btn" id="btnNext">›</button>
     <button class="clear-btn" id="btnClear">✕ Limpiar</button>
@@ -203,27 +186,29 @@ html,body{ height:100%; background:var(--bg); color:var(--text); font-family:'Sp
 <script>
 let remoteState = null;
 let mqttClient = null;
+let currentTab = 'servicio';
+let bibleData = null;
+let bibleBook = 0, bibleChap = 0;
+let selectedVerses = new Set();
+const MAX_VERSES = 3;
 const room = new URLSearchParams(window.location.search).get('room') || 'ps-default';
 
 // ── MQTT ──
 function connectMQTT() {
-  const clientId = 'remote-' + Math.random().toString(36).slice(2, 8);
-  mqttClient = new Paho.Client('broker.hivemq.com', 8884, '/mqtt', clientId);
-  mqttClient.onConnectionLost = function() {
-    setConn(false);
-    setTimeout(connectMQTT, 3000);
-  };
-  mqttClient.onMessageArrived = function(msg) {
+  const cid = 'remote-' + Math.random().toString(36).slice(2,8);
+  mqttClient = new Paho.Client('broker.hivemq.com', 8884, '/mqtt', cid);
+  mqttClient.onConnectionLost = () => { setConn(false); setTimeout(connectMQTT, 3000); };
+  mqttClient.onMessageArrived = msg => {
     try {
-      const data = JSON.parse(msg.payloadString);
-      if (data.type === 'state') { remoteState = data; updateAll(); }
+      const d = JSON.parse(msg.payloadString);
+      if (d.type === 'state') { remoteState = d; updateAll(); }
     } catch(_) {}
   };
   mqttClient.connect({
     useSSL: true, keepAliveInterval: 30,
     onSuccess: function() {
       setConn(true);
-      mqttClient.subscribe('proyector/' + room + '/state');
+      mqttClient.subscribe('liteworship/' + room + '/state');
       sendCmd('request-state');
     },
     onFailure: function() { setConn(false); setTimeout(connectMQTT, 4000); }
@@ -234,112 +219,312 @@ connectMQTT();
 function setConn(ok) {
   const el = document.getElementById('connStatus');
   el.textContent = ok ? 'Conectado' : 'Reconectando...';
-  el.className = 'conn-status' + (ok ? ' ok' : '');
+  el.className = ok ? 'conn-ok' : 'conn-wait';
 }
-
 function sendCmd(action, extra) {
   if (!mqttClient || !mqttClient.isConnected()) return;
   const cmd = Object.assign({ type:'cmd', action, ts:Date.now() }, extra||{});
   const msg = new Paho.Message(JSON.stringify(cmd));
-  msg.destinationName = 'proyector/' + room + '/cmd';
+  msg.destinationName = 'liteworship/' + room + '/cmd';
   try { mqttClient.send(msg); } catch(_) {}
 }
 
-// ── CONTROLES ──
+// ── CONTROLES INFERIORES ──
 document.getElementById('btnPrev').addEventListener('click', () => sendCmd('prev'));
 document.getElementById('btnNext').addEventListener('click', () => sendCmd('next'));
 document.getElementById('btnClear').addEventListener('click', () => sendCmd('clear'));
-document.getElementById('rAudioPlay').addEventListener('click', () => sendCmd('audio-play'));
-document.getElementById('rAudioNext').addEventListener('click', () => sendCmd('audio-next'));
-document.getElementById('rAudioPrev').addEventListener('click', () => sendCmd('audio-prev'));
-document.getElementById('audioProgressWrap').addEventListener('click', function(e) {
-  const rect = this.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  sendCmd('audio-seek', { ratio });
-});
 
-// ── RENDER ──
-function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// ── TABS ──
+const LITE_DISABLE_BIBLE = true;
+if (LITE_DISABLE_BIBLE) {
+  const tb = document.getElementById('tabBiblia');
+  if (tb) tb.style.display = 'none';
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  if (LITE_DISABLE_BIBLE && t.dataset.tab === 'biblia') return;
+  currentTab = t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  render();
+}));
+
+// ── UTILIDADES ──
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function updateAll() {
-  if (!remoteState) return;
   updateHeader();
-  updateTimeline();
-  updateAudio();
-  updatePreview();
   updateBottom();
+  render();
 }
 
 function updateHeader() {
-  const live = remoteState.payload && remoteState.payload.kind !== 'blank';
+  const live = remoteState && remoteState.payload && remoteState.payload.kind !== 'blank';
   document.getElementById('dotLive').className = 'dot' + (live ? ' on' : '');
   document.getElementById('liveText').textContent = live ? 'EN VIVO' : 'SIN SEÑAL';
 }
 
-function updateTimeline() {
-  const list = (remoteState && remoteState.list) || [];
-  const el = document.getElementById('timelineScroll');
-  if (!list.length) { el.innerHTML = '<div class="tl-empty">Sin lista de servicio activa.</div>'; return; }
-  el.innerHTML = '';
-  list.forEach(function(it) {
-    const card = document.createElement('div');
-    card.className = 'tl-card' + (it.isLive ? ' live' : '');
-    card.innerHTML = '<div class="tl-type">' + escHtml(it.type) + '</div><div class="tl-title">' + escHtml(it.title) + '</div>';
-    card.addEventListener('click', function() { sendCmd('project', { collection: it.type, refId: it.refId }); });
-    el.appendChild(card);
-  });
+function updateBottom() {
+  if (!remoteState) return;
+  const live = remoteState.payload && remoteState.payload.kind !== 'blank';
+  document.getElementById('slideCtr').textContent = live ? (remoteState.slideIndex+1)+'/'+remoteState.totalSlides : '—';
+  document.getElementById('slideSub').textContent = live ? (remoteState.title||'Proyectando') : 'Sin proyección';
 }
 
-function updateAudio() {
-  const audio = (remoteState && remoteState.audio) || {};
+function render() {
+  const main = document.getElementById('main');
+  if (!remoteState) {
+    main.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-faint);font-size:13px;line-height:1.7;">Esperando conexión con la Chromebook...<br>Asegúrate de que ambos dispositivos tengan internet.</div>';
+    return;
+  }
+  if (currentTab === 'servicio') renderServicio(main);
+  else renderBiblia(main);
+}
+
+// ── PESTAÑA SERVICIO ──
+function renderServicio(main) {
+  const list = remoteState.list || [];
+  const audio = remoteState.audio || {};
   const files = audio.files || [];
   const ci = typeof audio.currentIndex === 'number' ? audio.currentIndex : -1;
-  const playing = audio.playing || false;
   const progress = audio.duration ? (audio.currentTime / audio.duration) : 0;
+  const trackName = ci >= 0 && files[ci] ? files[ci].name.replace(/\.[^.]+$/,'') : 'Sin pista seleccionada';
 
-  document.getElementById('audioTrack').textContent = ci >= 0 && files[ci] ? files[ci].name.replace(/\.[^.]+$/, '') : 'Sin pista seleccionada';
-  document.getElementById('audioSub').textContent = files.length ? (ci >= 0 ? 'Pista ' + (ci+1) + ' de ' + files.length : files.length + ' pistas disponibles') : 'Sin pistas cargadas';
-  document.getElementById('audioFill').style.width = (progress * 100).toFixed(1) + '%';
-  document.getElementById('rAudioPlay').textContent = playing ? '⏸' : '▶';
+  main.innerHTML = '';
 
-  // Lista de pistas como píldoras horizontales
-  const listEl = document.getElementById('audioListScroll');
-  if (!files.length) { listEl.innerHTML = '<div class="audio-empty">Carga una carpeta de audio desde la Chromebook.</div>'; return; }
-  listEl.innerHTML = '';
-  files.forEach(function(f) {
-    const pill = document.createElement('div');
-    pill.className = 'audio-pill' + (f.index === ci ? ' active' : '');
-    pill.textContent = f.name.replace(/\.[^.]+$/, '');
-    pill.title = f.name;
-    pill.addEventListener('click', function() { sendCmd('audio-select', { index: f.index }); });
-    listEl.appendChild(pill);
+  // 1. Preview
+  const previewWrap = document.createElement('div');
+  previewWrap.className = 'preview-wrap';
+  const frame = document.createElement('div');
+  frame.className = 'preview-frame';
+  renderPreviewInto(frame);
+  previewWrap.appendChild(frame);
+  main.appendChild(previewWrap);
+
+  // 2. Lista de servicio
+  const slabel = document.createElement('div');
+  slabel.className = 'section-label';
+  slabel.textContent = 'LISTA DE SERVICIO';
+  main.appendChild(slabel);
+
+  if (!list.length) {
+    const empty = document.createElement('div');
+    empty.className = 'tl-empty';
+    empty.textContent = 'Sin lista de servicio activa.';
+    main.appendChild(empty);
+  } else {
+    const tlScroll = document.createElement('div');
+    tlScroll.className = 'tl-scroll';
+    list.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'tl-card' + (it.isLive ? ' live' : '');
+      card.innerHTML = `<div class="tl-type">${esc(it.type)}</div><div class="tl-title">${esc(it.title)}</div>`;
+      card.addEventListener('click', () => {
+        if (it.biblePayload) sendCmd('project', { collection:'biblia', refId:it.refId, biblePayload:it.biblePayload });
+        else sendCmd('project', { collection:it.type, refId:it.refId });
+      });
+      tlScroll.appendChild(card);
+    });
+    main.appendChild(tlScroll);
+  }
+
+  // 3. Audio
+  const audioSec = document.createElement('div');
+  audioSec.className = 'audio-sec';
+  audioSec.innerHTML = `
+    <div class="audio-top">
+      <div class="audio-track">${esc(trackName)}</div>
+      <div class="audio-sub">${files.length ? (ci>=0?'Pista '+(ci+1)+' de '+files.length:files.length+' pistas disponibles'):'Sin pistas cargadas'}</div>
+      <div class="audio-prog-wrap" id="audioProgWrap">
+        <div class="audio-fill" style="width:${(progress*100).toFixed(1)}%"></div>
+      </div>
+      <div class="audio-btns">
+        <button class="a-btn" id="rPrev" title="Reiniciar">↺</button>
+        <button class="a-btn pri" id="rPlay">${audio.playing?'⏸':'▶'}</button>
+        <button class="a-btn" id="rNext" title="Siguiente">⏭</button>
+      </div>
+    </div>`;
+
+  if (files.length) {
+    const pills = document.createElement('div');
+    pills.className = 'audio-pills';
+    files.forEach(f => {
+      const pill = document.createElement('div');
+      pill.className = 'audio-pill' + (f.index === ci ? ' active' : '');
+      pill.textContent = f.name.replace(/\.[^.]+$/,'');
+      pill.title = f.name;
+      pill.addEventListener('click', () => sendCmd('audio-select', { index: f.index }));
+      pills.appendChild(pill);
+    });
+    audioSec.appendChild(pills);
+  } else {
+    const empty = document.createElement('div');
+    empty.className = 'audio-empty';
+    empty.textContent = 'Carga una carpeta de audio desde la Chromebook.';
+    audioSec.appendChild(empty);
+  }
+  main.appendChild(audioSec);
+
+  // Eventos audio
+  document.getElementById('rPlay').addEventListener('click', () => sendCmd('audio-play'));
+  document.getElementById('rNext').addEventListener('click', () => sendCmd('audio-next'));
+  document.getElementById('rPrev').addEventListener('click', () => sendCmd('audio-prev'));
+  document.getElementById('audioProgWrap').addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    sendCmd('audio-seek', { ratio: Math.max(0, Math.min(1, (e.clientX-rect.left)/rect.width)) });
   });
 }
 
-function updatePreview() {
-  const frame = document.getElementById('previewFrame');
-  const payload = remoteState && remoteState.payload;
-  if (!payload || payload.kind === 'blank') {
-    frame.innerHTML = '<span class="preview-empty">Nada en proyección</span>';
-    return;
-  }
-  if (payload.kind === 'image') {
-    frame.innerHTML = '<img class="preview-img" src="' + escHtml(payload.imageData) + '" />';
-    return;
-  }
-  let html = escHtml(payload.text || '').replace(/\n/g, '<br>');
-  if (payload.reference) html += '<span class="ref">— ' + escHtml(payload.reference) + '</span>';
-  frame.innerHTML = '<div class="preview-text">' + html + '</div>';
+function renderPreviewInto(frame) {
+  const p = remoteState && remoteState.payload;
+  if (!p || p.kind === 'blank') { frame.innerHTML = '<span class="preview-empty">Nada en proyección</span>'; return; }
+  if (p.kind === 'image') { frame.innerHTML = `<img class="preview-img" src="${esc(p.imageData)}"/>`; return; }
+  let html = esc(p.text||'').replace(/\n/g,'<br>');
+  if (p.reference) html += `<span class="ref">— ${esc(p.reference)}</span>`;
+  frame.innerHTML = `<div class="preview-text">${html}</div>`;
 }
 
-function updateBottom() {
-  const si = remoteState.slideIndex || 0;
-  const total = remoteState.totalSlides || 1;
-  const title = remoteState.title || '';
-  const live = remoteState.payload && remoteState.payload.kind !== 'blank';
+// ── PESTAÑA BIBLIA ──
+const BIBLE_URL = './bible_rv1960.json';
+const BOOK_NAMES = ['Génesis','Éxodo','Levítico','Números','Deuteronomio','Josué','Jueces','Rut','1 Samuel','2 Samuel','1 Reyes','2 Reyes','1 Crónicas','2 Crónicas','Esdras','Nehemías','Ester','Job','Salmos','Proverbios','Eclesiastés','Cantares','Isaías','Jeremías','Lamentaciones','Ezequiel','Daniel','Oseas','Joel','Amós','Abdías','Jonás','Miqueas','Nahúm','Habacuc','Sofonías','Hageo','Zacarías','Malaquías','Mateo','Marcos','Lucas','Juan','Hechos','Romanos','1 Corintios','2 Corintios','Gálatas','Efesios','Filipenses','Colosenses','1 Tesalonicenses','2 Tesalonicenses','1 Timoteo','2 Timoteo','Tito','Filemón','Hebreos','Santiago','1 Pedro','2 Pedro','1 Juan','2 Juan','3 Juan','Judas','Apocalipsis'];
 
-  document.getElementById('slideCounter').textContent = live ? (si+1) + ' / ' + total : '—';
-  document.getElementById('slideSubtitle').textContent = live ? title : 'Sin proyección';
+async function loadBible() {
+  if (bibleData) return true;
+  try {
+    const res = await fetch(BIBLE_URL);
+    if (!res.ok) throw new Error();
+    bibleData = await res.json();
+    return true;
+  } catch(e) { return false; }
+}
+
+function renderBiblia(main) {
+  main.innerHTML = '<div class="bible-sec"><div class="bible-loading"><div class="spinner"></div><span>Cargando Biblia...</span></div></div>';
+  loadBible().then(ok => {
+    if (!ok) { main.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-faint);font-size:13px;">No se pudo cargar la Biblia.<br>Verifica tu conexión a internet.</div>'; return; }
+    buildBibleUI(main);
+  });
+}
+
+function buildBibleUI(main) {
+  main.innerHTML = '';
+  const sec = document.createElement('div');
+  sec.className = 'bible-sec';
+
+  // Selector de libro
+  const bookSel = document.createElement('select');
+  bookSel.className = 'bible-sel';
+  [['Antiguo Testamento',0,38],['Nuevo Testamento',39,65]].forEach(([group,from,to]) => {
+    const og = document.createElement('optgroup');
+    og.label = group;
+    for(let i=from;i<=to;i++){
+      const o=document.createElement('option');
+      o.value=i; o.textContent=BOOK_NAMES[i];
+      if(i===bibleBook) o.selected=true;
+      og.appendChild(o);
+    }
+    bookSel.appendChild(og);
+  });
+  bookSel.addEventListener('change', () => {
+    bibleBook=parseInt(bookSel.value); bibleChap=0;
+    selectedVerses.clear();
+    buildChapGrid(chapGrid);
+    buildVerseList(verseList);
+    updateProjBar(projBar);
+  });
+  sec.appendChild(bookSel);
+
+  // Label capítulos
+  const chapLabel = document.createElement('div');
+  chapLabel.className = 'chap-grid-label';
+  chapLabel.textContent = 'CAPÍTULO';
+  sec.appendChild(chapLabel);
+
+  // Grid de capítulos
+  const chapGrid = document.createElement('div');
+  chapGrid.className = 'chap-grid';
+  sec.appendChild(chapGrid);
+
+  // Barra proyectar
+  const projBar = document.createElement('div');
+  projBar.className = 'bible-proj-bar';
+  sec.appendChild(projBar);
+
+  // Lista de versículos
+  const verseList = document.createElement('div');
+  verseList.className = 'bible-verse-list';
+  sec.appendChild(verseList);
+
+  main.appendChild(sec);
+
+  buildChapGrid(chapGrid);
+  buildVerseList(verseList);
+  updateProjBar(projBar);
+}
+
+function buildChapGrid(grid) {
+  grid.innerHTML = '';
+  const book = bibleData[bibleBook];
+  if (!book) return;
+  book.chapters.forEach((_, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'chap-btn' + (i === bibleChap ? ' active' : '');
+    btn.textContent = i+1;
+    btn.addEventListener('click', () => {
+      bibleChap = i;
+      selectedVerses.clear();
+      grid.querySelectorAll('.chap-btn').forEach((b,j) => b.classList.toggle('active', j===i));
+      // Reconstruir versículos
+      const vl = grid.parentElement.querySelector('.bible-verse-list');
+      const pb = grid.parentElement.querySelector('.bible-proj-bar');
+      if(vl) buildVerseList(vl);
+      if(pb) updateProjBar(pb);
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function buildVerseList(list) {
+  list.innerHTML = '';
+  const book = bibleData[bibleBook];
+  if (!book) return;
+  const chapter = book.chapters[bibleChap] || [];
+  chapter.forEach((text, i) => {
+    const item = document.createElement('div');
+    const isSel = selectedVerses.has(i);
+    const isDim = !isSel && selectedVerses.size >= MAX_VERSES;
+    item.className = 'bv-item' + (isSel?' sel':'') + (isDim?' dim':'');
+    item.innerHTML = `<span class="bv-num">${i+1}</span><span class="bv-text">${esc(text)}</span>`;
+    item.addEventListener('click', () => {
+      if (isDim) return;
+      if (selectedVerses.has(i)) selectedVerses.delete(i);
+      else { if(selectedVerses.size >= MAX_VERSES) return; selectedVerses.add(i); }
+      // Refresh
+      const pb = list.parentElement.querySelector('.bible-proj-bar');
+      buildVerseList(list);
+      if(pb) updateProjBar(pb);
+    });
+    list.appendChild(item);
+  });
+}
+
+function updateProjBar(bar) {
+  const count = selectedVerses.size;
+  bar.innerHTML = `
+    <div class="bible-sel-counter"><span>${count}</span>/${MAX_VERSES} seleccionados</div>
+    <button class="bible-proj-btn" id="bibleProjBtn" ${count===0?'disabled':''}>
+      ${count>0 ? 'Proyectar ('+count+')' : 'Proyectar'}
+    </button>`;
+  const btn = bar.querySelector('#bibleProjBtn');
+  if(btn && count > 0) {
+    btn.addEventListener('click', () => {
+      const sorted = [...selectedVerses].sort((a,b)=>a-b);
+      const book = bibleData[bibleBook];
+      const chapter = book.chapters[bibleChap] || [];
+      const start = sorted[0], end = sorted[sorted.length-1];
+      const text = chapter.slice(start, end+1).map((v,i)=>`${start+i+1} ${v}`).join('\n');
+      const reference = `${book.name} ${bibleChap+1}:${start+1}${end>start?'-'+(end+1):''}`;
+      sendCmd('bible-project', { biblePayload:{ text, reference } });
+    });
+  }
 }
 </script>
 </body>
