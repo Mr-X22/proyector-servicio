@@ -23,7 +23,7 @@ const bible = {
   OT_COUNT: 39,  // primeros 39 libros = Antiguo Testamento
 
   // Versión del archivo de la Biblia — cambiar cuando se actualice el JSON
-  CACHE_VERSION: 'rv1960-local-v1',
+  CACHE_VERSION: 'rv1960-local-v5',
 
   async load(onProgress) {
     if (this.loaded) return true;

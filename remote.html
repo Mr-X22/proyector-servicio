@@ -26,7 +26,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 /* TABS — solo 2 */
 .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;}
 .tab{flex:1;padding:12px 4px;text-align:center;font-size:13px;font-weight:600;color:var(--text-faint);cursor:pointer;border-bottom:2px solid transparent;}
-.tab-disabled{opacity:.35;cursor:not-allowed;}
 .tab.active{color:var(--amber);border-bottom-color:var(--amber);}
 
 /* SCROLL MAIN */
@@ -164,7 +163,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   <!-- SOLO 2 TABS -->
   <div class="tabs">
     <div class="tab active" data-tab="servicio">📋 Servicio</div>
-    <div class="tab" data-tab="biblia" id="tabBiblia">✝️ Biblia</div>
+    <div class="tab" data-tab="biblia">✝️ Biblia</div>
   </div>
 
   <!-- CONTENIDO -->
@@ -235,13 +234,7 @@ document.getElementById('btnNext').addEventListener('click', () => sendCmd('next
 document.getElementById('btnClear').addEventListener('click', () => sendCmd('clear'));
 
 // ── TABS ──
-const LITE_DISABLE_BIBLE = true;
-if (LITE_DISABLE_BIBLE) {
-  const tb = document.getElementById('tabBiblia');
-  if (tb) tb.style.display = 'none';
-}
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  if (LITE_DISABLE_BIBLE && t.dataset.tab === 'biblia') return;
   currentTab = t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
   render();
